@@ -150,57 +150,61 @@ def process_packets(pcap,mode):
 
         # print(timestamp, len(pkt))
 
-        # Make sure the Ethernet data contains an IP packet otherwise just skip processing
-        if not isinstance(dpkt.ethernet.Ethernet(pkt).data, dpkt.ip.IP):
-            # print('Non IP Packet type not supported %s\n' % eth.data.__class__.__name__)
-            continue
-
         # Print out the timestamp in UTC
         # print('Timestamp: ', str(datetime.datetime.utcfromtimestamp(timestamp)))
 
-        # Unpack the Ethernet frame
-        eth = dpkt.ethernet.Ethernet(pkt)
-        # print('Ethernet Frame: ', mac_addr(eth.src), mac_addr(eth.dst))
+        # Parse IP/Port/Proto Information
+        try:
+            # Unpack the Ethernet frame
+            eth = dpkt.ethernet.Ethernet(pkt)
+            # print('Ethernet Frame: ', mac_addr(eth.src), mac_addr(eth.dst))
 
-        # Now unpack the data within the Ethernet frame (the IP packet)
-        ip = eth.data
+            # # Now unpack the data within the Ethernet frame (the IP packet)
+            ip = eth.data
 
-        # Now check if this is an ICMP packet
-        if isinstance(ip.data, dpkt.icmp.ICMP):
-            # print('ICMP packet detected\n')
-            continue
-
-        # Now check if this is an ICMP packet
-        if isinstance(ip.data, dpkt.pim.PIM):
-           # print('PIM detected\n')
-           continue
-
-        # Now check if this is an ICMP packet
-        if isinstance(ip.data, dpkt.ip6.IP6):
-           # print('IPv6 detected\n')
-           continue
-
-        # calculate the flow ID and backward flow ID
-        flow_id = (hashlib.md5(
-            (inet_to_str(ip.src) + ' ' + str(ip.data.sport) + ' ' + inet_to_str(ip.dst) + ' ' + str(ip.data.dport) + ' ' + str(ip.p)).encode(
-                'utf-8'))).hexdigest()
-
-        bwd_pkt_flow_id = (hashlib.md5(
-            (inet_to_str(ip.dst) + ' ' + str(ip.data.dport) + ' ' + inet_to_str(ip.src) + ' ' + str(ip.data.sport) + ' ' + str(ip.p)).encode(
-                'utf-8'))).hexdigest()
-
-        if mode == "u":
-            if is_flow_record_present(flow_id,flow_cache) == True:
-                update_flow_record(flow_id, flow_cache, timestamp, ip)
+            # Make sure the Ethernet data contains an IP packet otherwise just skip processing
+            # Only handle IP4/6
+            if type(ip) == dpkt.ip.IP:
+                proto = ip.p
+            # elif type(pkt.data) == dpkt.ip6.IP6:
+            #     proto = pkt.data.nxt
             else:
-                create_flow_record(flow_id, flow_cache, timestamp, ip)
-        elif mode == "b":
-            if is_flow_record_present(flow_id,flow_cache) == True:
-                update_biflow_record(flow_id, flow_cache, timestamp, ip, 'f')
-            elif is_flow_record_present(bwd_pkt_flow_id, flow_cache) == True:
-                update_biflow_record(bwd_pkt_flow_id, flow_cache, timestamp, ip, 'b')
-            else:
-                create_biflow_record(flow_id, flow_cache, timestamp, ip, bwd_pkt_flow_id)
+                continue
+
+            # Only process packet if the used protocol is TCP or UDP
+            if proto == dpkt.ip.IP_PROTO_TCP or proto == dpkt.ip.IP_PROTO_UDP:
+                # addr = (
+                #        proto, pkt.data.src, pkt.data.data.sport, pkt.data.dst, pkt.data.data.dport)
+            # else:
+            #     addr = (proto, pkt.data.src, None, pkt.data.dst, None)
+
+            # calculate the flow ID and backward flow ID
+                flow_id = (hashlib.md5(
+                    (inet_to_str(ip.src) + ' ' + str(ip.data.sport) + ' ' + inet_to_str(ip.dst) + ' ' + str(
+                        ip.data.dport) + ' ' + str(ip.p)).encode(
+                        'utf-8'))).hexdigest()
+
+                bwd_pkt_flow_id = (hashlib.md5(
+                    (inet_to_str(ip.dst) + ' ' + str(ip.data.dport) + ' ' + inet_to_str(ip.src) + ' ' + str(
+                        ip.data.sport) + ' ' + str(ip.p)).encode(
+                        'utf-8'))).hexdigest()
+
+                if mode == "u":
+                    if is_flow_record_present(flow_id, flow_cache) == True:
+                        update_flow_record(flow_id, flow_cache, timestamp, ip)
+                    else:
+                        create_flow_record(flow_id, flow_cache, timestamp, ip)
+                elif mode == "b":
+                    if is_flow_record_present(flow_id, flow_cache) == True:
+                        update_biflow_record(flow_id, flow_cache, timestamp, ip, 'f')
+                    elif is_flow_record_present(bwd_pkt_flow_id, flow_cache) == True:
+                        update_biflow_record(bwd_pkt_flow_id, flow_cache, timestamp, ip, 'b')
+                    else:
+                        create_biflow_record(flow_id, flow_cache, timestamp, ip, bwd_pkt_flow_id)
+
+        except:
+            continue  # Skip Packet if unable to parse
+
 
     return flow_cache
 
@@ -359,66 +363,11 @@ if __name__ == '__main__':
             # print(df.dtypes)
 
             # write into CSV file
-            # df.to_csv('out.csv')
+            df.to_csv('out.csv')
 
+            # write into XLSX file
+            # writer = pd.ExcelWriter('output.xlsx')
+            # df.to_excel(writer, 'Sheet1')
+            # writer.save()
 
     main()
-
-
-    # https://jon.oberheide.org/blog/2008/08/25/dpkt-tutorial-1-icmp-echo/
-    # https://jon.oberheide.org/blog/2008/10/15/dpkt-tutorial-2-parsing-a-pcap-file/
-    # https://jon.oberheide.org/blog/2008/12/20/dpkt-tutorial-3-dns-spoofing/
-    # https://jon.oberheide.org/blog/2009/03/25/dpkt-tutorial-4-as-paths-from-mrt-bgp/
-
-
-
-    # dev = 'en0'
-    #
-    # expr = 'udp or tcp'
-    #
-    # maxlen = 65535  # max size of packet to capture
-    # promiscuous = 1  # promiscuous mode?
-    # read_timeout = 100  # in milliseconds
-    # max_pkts = 5  # number of packets to capture; -1 => no limit
-    #
-    # cap = pcapy.open_live(dev, maxlen, promiscuous, read_timeout)
-    # cap.setfilter(expr)
-    #
-    #
-    # while (1):
-    #     (header, packet) = cap.next()
-    #     print(header.src)
-    #
-    #     print("TU")
-    #     # print ('%s: captured %d bytes, truncated to %d bytes' %(datetime.datetime.now(), header.getlen(), header.getcaplen()))
-    #     parse_packet(packet)
-
-
-    # with open('t.pcap', 'rb') as file:
-    #     pcap = dpkt.pcap.Reader(file)
-    #
-    #     # process packets
-    #     # 'u' is for unidirectional flows, 'b' is for bidirectional flows
-    #     f_cache = process_packets(pcap,"b")
-    #
-    # show_flow_cache(f_cache)
-    #
-    # df = pd.DataFrame.from_dict(f_cache, orient='index')
-    # df.index.name = 'flow_id'
-    # df.reset_index(inplace=True)
-    # df.replace(0, np.NAN, inplace=True)
-    #
-    # # print(df.dtypes)
-    #
-    # # write into CSV file
-    # df.to_csv('out.csv')
-    #
-    # # write into XLSX file
-    # # writer = pd.ExcelWriter('output.xlsx')
-    # # df.to_excel(writer, 'Sheet1')
-    # # writer.save()
-    #
-    #     # print(df.values)
-    #
-    # # print the number of flow records in the flow cache
-    # # print("\n", len(f_cache.keys()))
