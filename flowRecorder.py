@@ -52,7 +52,7 @@ def is_flow_record_present(key,flow_cache):
 
 
 # build the flow record
-def create_flow_record(flow_id,flow_cache,timestamp, ip):
+def create_flow_record(flow_id,flow_cache,timestamp, ip, packets):
     # print('Creating the flow record')
     # flow_cache[flow_id]['bwd_pkt_flow_id'] = bwd_id
     flow_cache[flow_id]['src_ip'] = inet_to_str(ip.src)
@@ -65,6 +65,28 @@ def create_flow_record(flow_id,flow_cache,timestamp, ip):
     flow_cache[flow_id]['flowDuration'] = (timestamp - flow_cache[flow_id]['flowStart'])
     flow_cache[flow_id]['pktTotalCount'] = 1
     flow_cache[flow_id]['octetTotalCount'] = ip.len
+    packets[flow_id]['length'][flow_cache[flow_id]['pktTotalCount']] = ip.len
+    flow_cache[flow_id]['size_min'] = ip.len
+    flow_cache[flow_id]['size_max'] = ip.len
+    flow_cache[flow_id]['size_avg'] = flow_cache[flow_id]['octetTotalCount'] / flow_cache[flow_id]['pktTotalCount']
+    flow_cache[flow_id]['size_std_dev'] = np.std(list(packets[flow_id]['length'].values()))
+
+
+
+# update the flow record
+def update_flow_record(flow_id,flow_cache,timestamp,ip,packets):
+    # print('Updating the flow record')
+    flow_cache[flow_id]['flowEnd'] = timestamp
+    flow_cache[flow_id]['flowDuration'] = (timestamp - flow_cache[flow_id]['flowStart'])
+    flow_cache[flow_id]['pktTotalCount'] += 1
+    flow_cache[flow_id]['octetTotalCount'] += ip.len
+    packets[flow_id]['length'][flow_cache[flow_id]['pktTotalCount']] = ip.len
+    flow_cache[flow_id]['size_min'] = min(packets[flow_id]['length'].values())
+    flow_cache[flow_id]['size_max'] = max(packets[flow_id]['length'].values())
+    flow_cache[flow_id]['size_avg'] = flow_cache[flow_id]['octetTotalCount'] / flow_cache[flow_id]['pktTotalCount']
+    flow_cache[flow_id]['size_std_dev'] = np.std(list(packets[flow_id]['length'].values()))
+
+
 
 # build the flow record
 def create_biflow_record(flow_id,flow_cache,timestamp, ip, bwd_id):
@@ -95,14 +117,6 @@ def create_biflow_record(flow_id,flow_cache,timestamp, ip, bwd_id):
     flow_cache[flow_id]['B_octetTotalCount'] = 0
 
 
-
-# update the flow record
-def update_flow_record(flow_id,flow_cache,timestamp,ip):
-    # print('Updating the flow record')
-    flow_cache[flow_id]['flowEnd'] = timestamp
-    flow_cache[flow_id]['flowDuration'] = (timestamp - flow_cache[flow_id]['flowStart'])
-    flow_cache[flow_id]['pktTotalCount'] += 1
-    flow_cache[flow_id]['octetTotalCount'] += ip.len
 
 # update the flow record
 def update_biflow_record(flow_id,flow_cache,timestamp,ip, dir):
@@ -144,6 +158,7 @@ def process_packets(pcap,mode):
 
     # Create an empty flow cache (nested dictionary)
     flow_cache = defaultdict(dict)
+    packets_details = defaultdict(lambda: defaultdict(dict))
 
     # For each packet in the pcap process the contents
     for timestamp, pkt in pcap:
@@ -191,9 +206,9 @@ def process_packets(pcap,mode):
 
                 if mode == "u":
                     if is_flow_record_present(flow_id, flow_cache) == True:
-                        update_flow_record(flow_id, flow_cache, timestamp, ip)
+                        update_flow_record(flow_id, flow_cache, timestamp, ip, packets_details)
                     else:
-                        create_flow_record(flow_id, flow_cache, timestamp, ip)
+                        create_flow_record(flow_id, flow_cache, timestamp, ip, packets_details)
                 elif mode == "b":
                     if is_flow_record_present(flow_id, flow_cache) == True:
                         update_biflow_record(flow_id, flow_cache, timestamp, ip, 'f')
@@ -206,13 +221,16 @@ def process_packets(pcap,mode):
             continue  # Skip Packet if unable to parse
 
 
-    return flow_cache
+    return flow_cache, packets_details
 
 
 def sniff(interface):
 
     global flow_cache
     flow_cache = defaultdict(dict)
+
+    global packets_details
+    packets_details = defaultdict(lambda: defaultdict(dict))
 
     # dev = 'en0'
     dev = interface
@@ -242,13 +260,14 @@ def sniff(interface):
     # df.replace(0, np.NAN, inplace=True)
     # print(df)
 
-    return flow_cache
+    return flow_cache, packets_details
 
 
 
 def process_packet(hdr, buf):
 
     global flow_cache
+    global packets_details
 
     # print (hdr)
     # print('%s: captured %d bytes, truncated to %d bytes'
@@ -288,9 +307,21 @@ def process_packet(hdr, buf):
             'utf-8'))).hexdigest()
 
     if is_flow_record_present(flow_id, flow_cache) == True:
-        update_flow_record(flow_id, flow_cache, timestamp, ip)
+        update_flow_record(flow_id, flow_cache, timestamp, ip, packets_details)
     else:
-        create_flow_record(flow_id, flow_cache, timestamp, ip)
+        create_flow_record(flow_id, flow_cache, timestamp, ip, packets_details)
+
+def show_calculation_details(key1,key2,packets):
+
+    print("\nItems : ", packets[key1][key2])
+    print("Values: ", list(packets[key1][key2].values()))
+    print("Min   : ", min(packets[key1][key2].values()))
+    print("Max   : ", max(packets[key1][key2].values()))
+    # print(sum(s_dict[key1][key2].values()))
+    # print(len(s_dict[key1][key2].values()))
+    # print(float(len(s_dict[key1][key2])))
+    print("Mean  : ", sum(packets[key1][key2].values()) / len(packets[key1][key2].values()))
+    print("Std_d : ", np.std(list(packets[key1][key2].values())))
 
 
 
@@ -330,7 +361,7 @@ if __name__ == '__main__':
             pass
         else:
 
-            f_cache = sniff(interface)
+            f_cache, packet_details = sniff(interface)
 
             df = pd.DataFrame.from_dict(f_cache, orient='index')
             df.index.name = 'flow_id'
@@ -350,7 +381,7 @@ if __name__ == '__main__':
 
                 # process packets
                 # 'u' is for unidirectional flows, 'b' is for bidirectional flows
-                f_cache = process_packets(pcap,dir)
+                f_cache, packet_details = process_packets(pcap,dir)
 
             # show_flow_cache(f_cache)
             df = pd.DataFrame.from_dict(f_cache, orient='index')
@@ -359,8 +390,9 @@ if __name__ == '__main__':
             df.replace(0, np.NAN, inplace=True)
 
             print(df)
-
             # print(df.dtypes)
+
+            # show_calculation_details('2694430813ba1b57bbc059731ac2f8fa','length',packet_details)
 
             # write into CSV file
             df.to_csv('out.csv')
