@@ -65,12 +65,17 @@ def create_flow_record(flow_id,flow_cache,timestamp, ip, packets):
     flow_cache[flow_id]['flowDuration'] = (timestamp - flow_cache[flow_id]['flowStart'])
     flow_cache[flow_id]['pktTotalCount'] = 1
     flow_cache[flow_id]['octetTotalCount'] = ip.len
+    packets[flow_id]['times'][flow_cache[flow_id]['pktTotalCount']] = timestamp
     packets[flow_id]['length'][flow_cache[flow_id]['pktTotalCount']] = ip.len
     flow_cache[flow_id]['size_min'] = ip.len
     flow_cache[flow_id]['size_max'] = ip.len
     flow_cache[flow_id]['size_avg'] = flow_cache[flow_id]['octetTotalCount'] / flow_cache[flow_id]['pktTotalCount']
     flow_cache[flow_id]['size_std_dev'] = np.std(list(packets[flow_id]['length'].values()))
 
+    flow_cache[flow_id]['iat_min'] = 0
+    flow_cache[flow_id]['iat_max'] = 0
+    flow_cache[flow_id]['iat_avg'] = 0
+    flow_cache[flow_id]['iat_std_dev'] = 0
 
 
 # update the flow record
@@ -81,11 +86,18 @@ def update_flow_record(flow_id,flow_cache,timestamp,ip,packets):
     flow_cache[flow_id]['pktTotalCount'] += 1
     flow_cache[flow_id]['octetTotalCount'] += ip.len
     packets[flow_id]['length'][flow_cache[flow_id]['pktTotalCount']] = ip.len
+    packets[flow_id]['times'][flow_cache[flow_id]['pktTotalCount']] = timestamp
     flow_cache[flow_id]['size_min'] = min(packets[flow_id]['length'].values())
     flow_cache[flow_id]['size_max'] = max(packets[flow_id]['length'].values())
     flow_cache[flow_id]['size_avg'] = flow_cache[flow_id]['octetTotalCount'] / flow_cache[flow_id]['pktTotalCount']
     flow_cache[flow_id]['size_std_dev'] = np.std(list(packets[flow_id]['length'].values()))
 
+    packets[flow_id]['iats'][flow_cache[flow_id]['pktTotalCount']-1] = packets[flow_id]['times'][flow_cache[flow_id]['pktTotalCount']] - packets[flow_id]['times'][flow_cache[flow_id]['pktTotalCount']-1]
+
+    flow_cache[flow_id]['iat_min'] = min(packets[flow_id]['iats'].values())
+    flow_cache[flow_id]['iat_max'] = max(packets[flow_id]['iats'].values())
+    flow_cache[flow_id]['iat_avg'] = sum(packets[flow_id]['iats'].values()) / flow_cache[flow_id]['pktTotalCount']
+    flow_cache[flow_id]['iat_std_dev'] = np.std(list(packets[flow_id]['iats'].values()))
 
 
 # build the flow record
@@ -392,7 +404,7 @@ if __name__ == '__main__':
             print(df)
             # print(df.dtypes)
 
-            # show_calculation_details('2694430813ba1b57bbc059731ac2f8fa','length',packet_details)
+            # show_calculation_details('ffaaba4798330f4687f246bedc444b7a','iats',packet_details)
 
             # write into CSV file
             df.to_csv('out.csv')
