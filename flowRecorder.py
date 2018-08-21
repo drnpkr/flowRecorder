@@ -42,12 +42,20 @@ def inet_to_str(inet):
 
 
 def is_flow_record_present(key,flow_cache):
-  if key in flow_cache:
-      # print('Flow Record is present in the Flow Cache')
-      return True
-  else:
-      # print('Flow Record is NOT present in the Flow Cache')
-      return False
+    """Checks whether there is any existing flow record in the flow cache for the packet
+
+           Args:
+               key (float): flowID calculated based on the 5-tuple
+           Returns:
+               bool: The return value. True for success, False otherwise.
+    """
+
+    if key in flow_cache:
+        # print('Flow Record is present in the Flow Cache')
+        return True
+    else:
+        # print('Flow Record is NOT present in the Flow Cache')
+        return False
 
 
 
@@ -59,6 +67,16 @@ def is_flow_record_present(key,flow_cache):
 
 # build the flow record
 def create_flow_record(flow_id, flow_cache, timestamp, ip, packets):
+    """
+    Function for creating the flow record when organizing packet into flows in one direction
+
+    :param flow_id: the flowID of the actually processed packet that was computed based on the 5-tuple
+    :param flow_cache: a global variable (flow cache) that holds stores all the flow records
+    :param timestamp: the timestamp of the actually processed packet
+    :param ip: the ip packet
+    :param packets: another global variable that is used to store packet related information to calculate min/max/avg/std_dev of packet sizes (PS) and  packet inter-arrival-times (PIATs)
+    """
+
     # print('Creating the flow record')
     # flow_cache[flow_id]['bwd_pkt_flow_id'] = bwd_id
 
@@ -102,6 +120,15 @@ def create_flow_record(flow_id, flow_cache, timestamp, ip, packets):
 
 # update the flow record
 def update_flow_record(flow_id, flow_cache, timestamp, ip, packets):
+    """
+    Function for updating the flow records in the flow cache when organizing packet into flows in one direction
+
+    :param flow_id: the flowID of the actually processed packet that was computed based on the 5-tuple
+    :param flow_cache: a global variable (flow cache) that holds stores all the flow records
+    :param timestamp: the timestamp of the actually processed packet
+    :param ip: the ip packet
+    :param packets: another global variable that is used to store packet related information to calculate min/max/avg/std_dev of packet sizes (PS) and  packet inter-arrival-times (PIATs)
+    """
     # print('Updating the flow record')
 
     # store the sizes of the newly captured packets
@@ -147,6 +174,17 @@ def update_flow_record(flow_id, flow_cache, timestamp, ip, packets):
 
 # build the flow record
 def create_biflow_record(flow_id, flow_cache, timestamp, ip, bwd_id, packets):
+    """
+     Function for creating the flow record when organizing packet into flows in bidirection
+
+     :param flow_id: the flowID of the actually processed packet that was computed based on the 5-tuple
+     :param flow_cache: a global variable (flow cache) that holds stores all the flow records
+     :param timestamp: the timestamp of the actually processed packet
+     :param ip: the ip packet
+     :param bwd_id: the backward flowID of the actually processed packet that was computed based on the 5-tuple
+     :param packets: another global variable that is used to store packet related information to calculate min/max/avg/std_dev of packet sizes (PS) and  packet inter-arrival-times (PIATs)
+     """
+
     # print('Creating the flow record')
     # store the backward flow id
     flow_cache[flow_id]['bwd_pkt_flow_id'] = bwd_id
@@ -231,6 +269,17 @@ def create_biflow_record(flow_id, flow_cache, timestamp, ip, bwd_id, packets):
 
 # update the flow record
 def update_biflow_record(flow_id,flow_cache,timestamp,ip, dir, packets):
+    """
+     Function for updating the flow record when organizing packet into flows in bidirection
+
+     :param flow_id: the flowID of the actually processed packet that was computed based on the 5-tuple
+     :param flow_cache: a global variable (flow cache) that holds stores all the flow records
+     :param timestamp: the timestamp of the actually processed packet
+     :param ip: the ip packet
+     :param bwd_id: the backward flowID of the actually processed packet that was computed based on the 5-tuple
+     :param packets: another global variable that is used to store packet related information to calculate min/max/avg/std_dev of packet sizes (PS) and  packet inter-arrival-times (PIATs)
+     """
+
     # print('Updating the flow record')
 
     # update the number of packets and bytes (packets sizes) in the flow
@@ -330,6 +379,11 @@ def update_biflow_record(flow_id,flow_cache,timestamp,ip, dir, packets):
 
 
 def convert_f_cache_to_dataframe(f_cache):
+    """
+    Function that converts the flow cahce (nested dictionary) to a pandas dataframe
+    :param f_cache: the flow cache (a nested dictionary) that is going to be converted into a DF
+    :return: the pandas dataframe
+    """
     df = pd.DataFrame.from_dict(f_cache, orient='index')
     df.index.name = 'flow_id'
     df.reset_index(inplace=True)
@@ -339,6 +393,10 @@ def convert_f_cache_to_dataframe(f_cache):
 
 # Print the contents of the flow cache
 def show_flow_cache(df):
+    """
+    Function that prints the dataframe
+    :param df: the DF to print
+    """
     # for f_id, f_info in f_cache.items():
     #     print("\nFlow ID            :", f_id)
     #     for key in f_info:
@@ -350,6 +408,12 @@ def show_flow_cache(df):
 
 
 def save_flow_cache(df, file_out):
+    """
+    Function that stores the dataframe
+    :param df: dataframe to be stored as CSV
+    :param file_out: the name of the CSV file
+
+    """
 
     # write into CSV file
     df.to_csv(file_out)
@@ -366,6 +430,10 @@ def process_packets(pcap,mode):
 
        Args:
            pcap: dpkt pcap reader object (dpkt.pcap.Reader)
+           mode: the mode in which the packets should be organised into flow records. 'u' is for unidirectional, 'b' is for bidirectional. These variables are entered as program arguments when executing the code.
+       Returns:
+           flow_cache: a nested dictionary storing the flow records
+           packet_details: the packet details that have been used to calculate the min/max/avg/std_dev of PS and PIATs
     """
 
     # Create an empty flow cache (nested dictionary)
@@ -437,6 +505,13 @@ def process_packets(pcap,mode):
 
 
 def sniff(interface, mode):
+    """
+    Function that sniffs the packets from a NIC and processes them based on the selected mode (uni/bidirectional)
+    :param interface: the interface from which the packets are going to be captured
+    :param mode: the directionality of organizing packets into flows
+    :return: flow_cache: a nested dictionary storing the flow records
+    :return: packet_details: the packet details that have been used to calculate the min/max/avg/std_dev of PS and PIATs
+    """
 
     global flow_cache
     flow_cache = defaultdict(dict)
@@ -490,6 +565,11 @@ def sniff(interface, mode):
     return flow_cache, packets_details
 
 def process_packet_u(hdr, buf):
+    """
+    Function that  extracts the details of the packet and passes them to create/update the flow record in one direction
+    :param hdr: the header of the packet
+    :param buf: the packet
+    """
 
     global flow_cache
     global packets_details
@@ -506,7 +586,7 @@ def process_packet_u(hdr, buf):
         eth = dpkt.ethernet.Ethernet(buf)
         # print('Ethernet Frame: ', mac_addr(eth.src), mac_addr(eth.dst))
 
-        # # Now unpack the data within the Ethernet frame (the IP packet)
+        # Now unpack the data within the Ethernet frame (the IP packet)
         ip = eth.data
 
         # Make sure the Ethernet data contains an IP packet otherwise just skip processing
@@ -555,7 +635,11 @@ def process_packet_u(hdr, buf):
 
 
 def process_packet_b(hdr, buf):
-
+    """
+    Function that  extracts the details of the packet and passes them to create/update the flow record in two directions
+    :param hdr: the header of the packet
+    :param buf: the packet
+    """
     global flow_cache
     global packets_details
 
@@ -677,6 +761,12 @@ def process_packet_b(hdr, buf):
 
 
 def show_calculation_details(key1,key2,packets):
+    """
+    Function that based on a flowID shows the details for the calculation of min/max/avg/std_dev of PS and PIATs
+    :param key1: the FlowID that was is based on the 5-tuple
+    :param key2: a second key that can be either length, times or iats
+    :param packets: the nested dict that stores all the information
+    """
 
     # print("\nItems : ", packets[key1][key2])
     print("\nNumber of items   : ", len(packets[key1][key2]))
@@ -794,7 +884,5 @@ if __name__ == '__main__':
             # show_calculation_details('03ebfd4bf44b3ec00980a5d96bf9833e', 'bi_iats', packet_details)
             # show_calculation_details('03ebfd4bf44b3ec00980a5d96bf9833e', 'f_iats', packet_details)
             # show_calculation_details('03ebfd4bf44b3ec00980a5d96bf9833e', 'b_iats', packet_details)
-
-
 
     main()
