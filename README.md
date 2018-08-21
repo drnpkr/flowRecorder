@@ -27,14 +27,10 @@ Examples:
 
 flowRecorder depends on the following libraries:
 
-dpkt
-
-pcapy
-
-hashlib
-
-pandas
-
+dpkt <br>
+pcapy <br>
+hashlib <br>
+pandas <br>
 numpy
 
 # Known issues
