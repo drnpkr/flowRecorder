@@ -35,4 +35,4 @@ numpy
 
 # Known issues
 
-The program is not optimized for processing large PCAP files. For example, processsing 500K packets takes approximately 40 minutes. However, the processing time also depends on the directionality and the computing resources.
+The program is not optimized for processing large PCAP files. For example, processsing 500K packets takes approximately 40 minutes. The processing time mainly depends on the selected directionality and the computing resources.
