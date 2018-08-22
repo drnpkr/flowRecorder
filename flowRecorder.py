@@ -425,7 +425,7 @@ def save_flow_cache(df, file_out):
 
 
 
-def process_packets(pcap,mode):
+def process_packets(pcap,mode,file_name):
     """Organises each packet in a pcap into a flow record (flow cache)
 
        Args:
@@ -440,10 +440,22 @@ def process_packets(pcap,mode):
     flow_cache = defaultdict(dict)
     packets_details = defaultdict(lambda: defaultdict(dict))
 
+    counter = 0
+
     # For each packet in the pcap process the contents
     for timestamp, pkt in pcap:
 
         # print(timestamp, len(pkt))
+
+        counter += 1
+        if counter % 100000 == 0:
+            print('Already processed %d packets' % counter)
+        if counter % 500000 == 0:
+            print('%s packets have been processed\n' % counter)
+            df = convert_f_cache_to_dataframe(flow_cache)
+            name = file_name + '-' + str(counter)
+            print('Saving data into %s.csv' % name)
+            save_flow_cache(df, name)
 
         # Print out the timestamp in UTC
         # print('Timestamp: ', str(datetime.datetime.utcfromtimestamp(timestamp)))
@@ -857,7 +869,7 @@ if __name__ == '__main__':
             # f_cache, packet_details = sniff(interface, direction)
 
             df = convert_f_cache_to_dataframe(flow_cache)
-            show_flow_cache(df)
+            # show_flow_cache(df)
             save_flow_cache(df, file_out)
 
         if file_in is None:
@@ -867,10 +879,10 @@ if __name__ == '__main__':
                 pcap = dpkt.pcap.Reader(file)
 
                 # process packets
-                f_cache, packet_details = process_packets(pcap, direction)
+                f_cache, packet_details = process_packets(pcap, direction,file_out)
 
             df = convert_f_cache_to_dataframe(f_cache)
-            show_flow_cache(df)
+            # show_flow_cache(df)
             save_flow_cache(df, file_out)
 
             # show_calculation_details('03ebfd4bf44b3ec00980a5d96bf9833e', 'bi_length', packet_details)
