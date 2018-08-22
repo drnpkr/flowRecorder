@@ -7,7 +7,7 @@ A packet parser tool. It parses the packets and organize them into flow records.
 
 The program can take a number of arguments: 
 
-&nbsp;&nbsp;&nbsp; **-d, --dricetion** sets whether the packets will be organised into flows in uni- or bidirection <br>
+&nbsp;&nbsp;&nbsp; **-d, --direction** sets whether the packets will be organised into flows in uni- or bidirection <br>
 &nbsp;&nbsp;&nbsp; **-i, --interface** sets the networking interface card from which the packets will be sniffed <br>
 &nbsp;&nbsp;&nbsp; **-f, --file** sets the name of the PCAP file <br>
 &nbsp;&nbsp;&nbsp; **-o, --out** sets the name of the CSV file into which the results will be saved <br>
@@ -18,20 +18,31 @@ Examples:
     python3 flowRecorder.py -d u -f p.pcap -o results.csv
 ```
   
-  2) To start caputring the packets from a NIC and organize them into flow records in bidirection, the following command can be used:
+  2) To start caputring the packets from a NIC (en0) and organize them into flow records in bidirection, the following command can be used:
 ```
-    python3 flowRecorder.py -d b -i en0 -o results.csv
+    sudo python3 flowRecorder.py -d b -i en0 -o results.csv
 ```
 
 # Dependencies
 
 flowRecorder depends on the following libraries:
 
-dpkt <br>
-pcapy <br>
-hashlib <br>
-pandas <br>
-numpy
+* dpkt
+* pcapy
+* hashlib
+* pandas
+* numpy
+
+These can be installed with:
+
+```
+sudo apt-get update
+sudo apt-get install libpcap-dev
+
+sudo apt install python3-pip
+
+pip3 install dpkt pcapy pandas numpy click
+```
 
 # Known issues
 
