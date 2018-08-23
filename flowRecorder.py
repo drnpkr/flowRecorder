@@ -823,7 +823,7 @@ if __name__ == '__main__':
             2. Parsing packets from a PCAP file.
 
             The program can take a number of arguments:
-            -d, --dricetion  sets whether the packets will be organised into flows in uni- or bidirection
+            -d, --direction  sets whether the packets will be organised into flows in uni- or bidirection
             -i, --interface sets the networking interface card from which the packets will be sniffed
             -f, --file sets the name of the PCAP file
             -o, --out sets the name of the CSV file into which the results will be saved
