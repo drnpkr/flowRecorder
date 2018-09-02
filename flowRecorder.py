@@ -1,4 +1,18 @@
-#!/usr/bin/env python
+#    Copyright 2018 Adrian Pekar
+# 
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+# 
+#        http://www.apache.org/licenses/LICENSE-2.0
+# 
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+
 """
 Use DPKT to read in a pcap file, organise packets into flows, and print out the flow records
 """
@@ -447,6 +461,10 @@ def process_packets(pcap,mode,file_name):
 
         # print(timestamp, len(pkt))
 
+        # Print out the timestamp in UTC
+        # print('Timestamp: ', str(datetime.datetime.utcfromtimestamp(timestamp)))
+
+        # Store preliminary data after processing 500K packets
         counter += 1
         if counter % 100000 == 0:
             print('Already processed %d packets' % counter)
@@ -456,9 +474,6 @@ def process_packets(pcap,mode,file_name):
             name = file_name + '-' + str(counter)
             print('Saving data into %s.csv' % name)
             save_flow_cache(df, name)
-
-        # Print out the timestamp in UTC
-        # print('Timestamp: ', str(datetime.datetime.utcfromtimestamp(timestamp)))
 
         # Parse IP/Port/Proto Information
         try:
@@ -508,73 +523,74 @@ def process_packets(pcap,mode,file_name):
                         update_biflow_record(bwd_pkt_flow_id, flow_cache, timestamp, ip, 'b', packets_details)
                     else:
                         create_biflow_record(flow_id, flow_cache, timestamp, ip, bwd_pkt_flow_id, packets_details)
-
+        except (KeyboardInterrupt):
+            print("\n\nSIGINT (Ctrl-c) detected.\n")
+            return flow_cache, packets_details
         except:
             continue  # Skip Packet if unable to parse
 
-
     return flow_cache, packets_details
 
 
-def sniff(interface, mode):
-    """
-    Function that sniffs the packets from a NIC and processes them based on the selected mode (uni/bidirectional)
-    :param interface: the interface from which the packets are going to be captured
-    :param mode: the directionality of organizing packets into flows
-    :return: flow_cache: a nested dictionary storing the flow records
-    :return: packet_details: the packet details that have been used to calculate the min/max/avg/std_dev of PS and PIATs
-    """
-
-    global flow_cache
-    flow_cache = defaultdict(dict)
-
-    global packets_details
-    packets_details = defaultdict(lambda: defaultdict(dict))
-
-    # dev = 'en0'
-    dev = interface
-    maxlen = 65535  # max size of packet to capture
-    promiscuous = 1  # promiscuous mode?
-    read_timeout = 100  # in milliseconds
-    sniffer = pcapy.open_live(dev, maxlen, promiscuous, read_timeout)
-
-    # filter = 'udp or tcp'
-             # 'ip proto \\tcp'
-    # cap.setfilter(filter)
-
-    if mode == "u":
-        try:
-            while True:
-                # Grab the next header and packet buffer
-                # header, raw_buf = sniffer.next()
-                # while header is not None:
-                #     process_packet(header, raw_buf, mode)
-                #     header, raw_buf = sniffer.next()
-                sniffer.loop(0, process_packet_u)
-        except KeyboardInterrupt:
-            print("\n\nSIGINT (Ctrl-c) detected. Exitting...")
-            pass
-    else:
-        try:
-            while True:
-                # Grab the next header and packet buffer
-                # header, raw_buf = sniffer.next()
-                # while header is not None:
-                #     process_packet(header, raw_buf, mode)
-                #     header, raw_buf = sniffer.next()
-                sniffer.loop(0, process_packet_b)
-        except KeyboardInterrupt:
-            print("\n\nSIGINT (Ctrl-c) detected. Exitting...")
-            pass
-
-    # show_flow_cache(flow_cache)
-    # df = pd.DataFrame.from_dict(flow_cache, orient='index')
-    # df.index.name = 'flow_id'
-    # df.reset_index(inplace=True)
-    # df.replace(0, np.NAN, inplace=True)
-    # print(df)
-
-    return flow_cache, packets_details
+# def sniff(interface, mode):
+#     """
+#     Function that sniffs the packets from a NIC and processes them based on the selected mode (uni/bidirectional)
+#     :param interface: the interface from which the packets are going to be captured
+#     :param mode: the directionality of organizing packets into flows
+#     :return: flow_cache: a nested dictionary storing the flow records
+#     :return: packet_details: the packet details that have been used to calculate the min/max/avg/std_dev of PS and PIATs
+#     """
+#
+#     global flow_cache
+#     flow_cache = defaultdict(dict)
+#
+#     global packets_details
+#     packets_details = defaultdict(lambda: defaultdict(dict))
+#
+#     # dev = 'en0'
+#     dev = interface
+#     maxlen = 65535  # max size of packet to capture
+#     promiscuous = 1  # promiscuous mode?
+#     read_timeout = 100  # in milliseconds
+#     sniffer = pcapy.open_live(dev, maxlen, promiscuous, read_timeout)
+#
+#     # filter = 'udp or tcp'
+#              # 'ip proto \\tcp'
+#     # cap.setfilter(filter)
+#
+#     if mode == "u":
+#         try:
+#             while True:
+#                 # Grab the next header and packet buffer
+#                 # header, raw_buf = sniffer.next()
+#                 # while header is not None:
+#                 #     process_packet(header, raw_buf, mode)
+#                 #     header, raw_buf = sniffer.next()
+#                 sniffer.loop(0, process_packet_u)
+#         except KeyboardInterrupt:
+#             print("\n\nSIGINT (Ctrl-c) detected. Exitting...")
+#             pass
+#     else:
+#         try:
+#             while True:
+#                 # Grab the next header and packet buffer
+#                 # header, raw_buf = sniffer.next()
+#                 # while header is not None:
+#                 #     process_packet(header, raw_buf, mode)
+#                 #     header, raw_buf = sniffer.next()
+#                 sniffer.loop(0, process_packet_b)
+#         except KeyboardInterrupt:
+#             print("\n\nSIGINT (Ctrl-c) detected. Exitting...")
+#             pass
+#
+#     # show_flow_cache(flow_cache)
+#     # df = pd.DataFrame.from_dict(flow_cache, orient='index')
+#     # df.index.name = 'flow_id'
+#     # df.reset_index(inplace=True)
+#     # df.replace(0, np.NAN, inplace=True)
+#     # print(df)
+#
+#     return flow_cache, packets_details
 
 def process_packet_u(hdr, buf):
     """
@@ -821,7 +837,7 @@ if __name__ == '__main__':
             2. Parsing packets from a PCAP file.
 
             The program can take a number of arguments:
-            -d, --direction  sets whether the packets will be organised into flows in uni- or bidirection
+            -d, --dricetion  sets whether the packets will be organised into flows in uni- or bidirection
             -i, --interface sets the networking interface card from which the packets will be sniffed
             -f, --file sets the name of the PCAP file
             -o, --out sets the name of the CSV file into which the results will be saved
@@ -852,31 +868,42 @@ if __name__ == '__main__':
 
             # start sniffing
             if direction == "u":
-                try:
-                    while True:
+                while True:
+                    print("Start sniffing on interface %s" % interface)
+                    print("Sniffing can be aborted via pressing Ctrl-c")
+                    try:
                         sniffer.loop(0, process_packet_u)
-                except KeyboardInterrupt:
-                    print("\n\nSIGINT (Ctrl-c) detected. Exitting...")
-                    pass
+                    except (KeyboardInterrupt, SystemExit):
+                        print("\n\nSIGINT (Ctrl-c) detected.\n")
+                        df = convert_f_cache_to_dataframe(flow_cache)
+                        # show_flow_cache(df)
+                        print('Writing the contents of the flow cache into %s\n' % file_out)
+                        save_flow_cache(df, file_out)
+                        # f_cache, packet_details = sniff(interface, direction)
+                        raise
             elif direction == "b":
-                try:
-                    while True:
+                while True:
+                    print("Start sniffing on interface %s" % interface)
+                    print("Sniffing can be aborted via pressing Ctrl-c")
+                    try:
                         sniffer.loop(0, process_packet_b)
-                except KeyboardInterrupt:
-                    print("\n\nSIGINT (Ctrl-c) detected. Exitting...")
-                    pass
-
-            # f_cache, packet_details = sniff(interface, direction)
-
-            df = convert_f_cache_to_dataframe(flow_cache)
-            # show_flow_cache(df)
-            save_flow_cache(df, file_out)
+                    except (KeyboardInterrupt, SystemExit):
+                        print("\n\nSIGINT (Ctrl-c) detected.\n")
+                        df = convert_f_cache_to_dataframe(flow_cache)
+                        # show_flow_cache(df)
+                        print('Writing the contents of the flow cache into %s\n' % file_out)
+                        save_flow_cache(df, file_out)
+                        # f_cache, packet_details = sniff(interface, direction)
+                        raise
 
         if file_in is None:
             pass
         else:
             with open(file_in, 'rb') as file:
                 pcap = dpkt.pcap.Reader(file)
+
+                print("Start processing the packets in the PCAP file.")
+                print("Parsing can be aborted via pressing Ctrl-c.")
 
                 # process packets
                 f_cache, packet_details = process_packets(pcap, direction,file_out)
