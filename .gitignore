@@ -1,0 +1,13 @@
+docs/build/
+docs/_build
+docs/_static
+docs/_templates
+*.pyc
+flowRecorder/*.pyc
+tests/.cache/
+tests/*.pyc
+tests/__pycache__/
+*.egg-info/
+build/
+dist/
+.cache/
