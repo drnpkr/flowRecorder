@@ -19,9 +19,7 @@ flowRecorder creates metadata about flows from packets,
 either from live capture or from capture file
 """
 
-# TEMP INSTALL NOTES
-# ------------------
-# pip3 install coloredlogs
+import time
 
 # For file path:
 import os
@@ -128,13 +126,18 @@ class FlowRecorder(BaseClass):
         Run flowRecorder
         """
         self.logger.info("Starting flowRecorder")
-        
+        time0 = time.time()
         if self.input_filename:
             self.logger.info("Opening PCAP file=%s", self.input_filename)
             with open(self.input_filename, 'rb') as pcap_file:
                 pcap_file_handle = dpkt.pcap.Reader(pcap_file)
+                time1 = time.time()
+                self.logger.debug("Open file time is %s seconds", time1 - time0)
                 self.flows.ingest_pcap(pcap_file_handle, 'b')
+                time2 = time.time()
+                self.logger.debug("Process packets time is %s seconds", time2 - time1)
         # TBD
+        #flows_result = self.flows.get_flows()
 
 def print_help():
     """

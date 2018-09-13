@@ -19,6 +19,7 @@ This data library represents network flows
 It stores cummulative information (not individual packets)
 about flows in a MongoDB collection
 """
+import time
 
 import sys
 import os
@@ -76,9 +77,8 @@ class Flows(BaseClass):
 
         # TBD CREATE MongoDB INDEXES:
 
-        # Create indexes on raw_data collection to improve searching:
-        #self.flows_col.create_index([('flow_hash', pymongo.DESCENDING),
-        #                            ], unique=False)
+        #Create indexes on raw_data collection to improve searching:
+        self.flows_col.create_index([('flow_hash', pymongo.DESCENDING),])
 
     def ingest_pcap(self, dpkt_reader, mode):
         """
@@ -97,13 +97,14 @@ class Flows(BaseClass):
 
         # For each packet in the pcap process the contents:
         for timestamp, packet in dpkt_reader:
+            #time0 = time.time()
             #*** Instantiate an instance of Packet class with packet info:
             packet = Packet(timestamp, packet, mode)
-
-        # Update the flow with packet info:
-        flow.update(packet)
-        
-
+            #time1 = time.time()
+            # Update the flow with packet info:
+            flow.update(packet)
+            #time2 = time.time()
+            #self.logger.debug("Packet time is %s flow time is %s", time1 - time0, time2 - time1)
 
     def get_flows(self):
         """
@@ -117,7 +118,6 @@ class Flows(BaseClass):
                 self.logger.debug("Found flow=%s", flow)
                 flows_result.append(flow)
         return flows_result
-
 
 class Flow(object):
     """
@@ -141,7 +141,12 @@ class Flow(object):
         self.flows_col = flows_col
         # Initialise flow variables:
         self.flow_hash = 0
-        self.pktTotalCount = 0
+        self.packet_count = 0
+        self.ip_src = 0
+        self.ip_dst = 0
+        self.proto = 0
+        self.tp_src = 0
+        self.tp_dst = 0
 
     def db_dict(self):
         """
@@ -150,41 +155,46 @@ class Flow(object):
         """
         dbdictresult = {}
         dbdictresult['flow_hash'] = self.flow_hash
-        dbdictresult['pktTotalCount'] = self.packet_count
+        dbdictresult['packet_count'] = self.packet_count
+        dbdictresult['ip_src'] = self.ip_src
+        dbdictresult['ip_dst'] = self.ip_dst
+        dbdictresult['proto'] = self.proto
+        dbdictresult['tp_src'] = self.tp_src
+        dbdictresult['tp_dst'] = self.tp_dst
         return dbdictresult
 
-    def update(self, flow_hash, pkt):
+    def update(self, packet):
         """
-        Add or update flow in flows db collection
+        Add or update flow in flows_col database collection
         """
-        spkt = self.spkt
-        self.flow_hash = flow_hash
+        self.flow_hash = packet.flow_hash
 
         # Look up flow hash in DB col:
-        db_query = {'flow_hash': flow_hash}
+        db_query = {'flow_hash': self.flow_hash}
         flow_doc = self.flows_col.find_one(db_query)
 
         if flow_doc:
+            #self.logger.debug("found existing flow hash=%s", self.flow_hash)
             # Found existing flow doc in DB:
             self.packet_count = flow_doc['packet_count'] + 1
-            self.packet_lengths = flow_doc['packet_lengths']
-            self.packet_lengths.append(spkt.frame_len(pkt))
             # Reuse original packet headers (retain first packet direction):
-            self.eth_src = flow_doc['eth_src']
-            self.eth_dst = flow_doc['eth_dst']
             self.ip_src = flow_doc['ip_src']
             self.ip_dst = flow_doc['ip_dst']
+            self.proto = flow_doc['proto']
+            self.tp_src = flow_doc['tp_src']
+            self.tp_dst = flow_doc['tp_dst']
             # Update document in DB collection:
             self.flows_col.update(db_query, self.db_dict())
         else:
+            #self.logger.debug("create new flow hash=%s", packet.flow_hash)
             # No flow doc in DB so create new:
             self.packet_count = 1
-            self.packet_lengths.append(spkt.frame_len(pkt))
             # Read packet headers from supplied packet:
-            self.eth_src = spkt.eth_src(pkt)
-            self.eth_dst = spkt.eth_dst(pkt)
-            self.ip_src = spkt.ip_src(pkt)
-            self.ip_dst = spkt.ip_dst(pkt)
+            self.ip_src = packet.ip_src
+            self.ip_dst = packet.ip_dst
+            self.proto = packet.proto
+            self.tp_src = packet.tp_src
+            self.tp_dst = packet.tp_dst
             # Write to DB collection:
             self.flows_col.insert_one(self.db_dict())
 
