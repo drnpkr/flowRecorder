@@ -19,6 +19,8 @@ This data library represents network flows
 It stores cummulative information (not individual packets)
 about flows in a MongoDB collection
 """
+from __future__ import print_function
+
 import time
 
 import sys
@@ -30,6 +32,10 @@ import socket
 # For time conversions:
 from datetime import datetime
 import calendar
+
+# Import runstats for code performance statistics:
+# Install with: pip install runstats --user
+from runstats import Statistics
 
 # mongodb Database Import:
 import pymongo
@@ -75,6 +81,9 @@ class Flows(BaseClass):
         #*** Create the flows collection:
         self.flows_col = db.create_collection('flows')
 
+        # Create a Flow object for flow operations:
+        self.flow = Flow(self.logger, self.flows_col)
+
         # TBD CREATE MongoDB INDEXES:
 
         #Create indexes on raw_data collection to improve searching:
@@ -92,17 +101,14 @@ class Flows(BaseClass):
              bidirectional.
 
         """
-        # Create a Flow object for flow operations:
-        flow = Flow(self.logger, self.flows_col)
-
         # For each packet in the pcap process the contents:
         for timestamp, packet in dpkt_reader:
             #time0 = time.time()
             #*** Instantiate an instance of Packet class with packet info:
-            packet = Packet(timestamp, packet, mode)
+            packet = Packet(self.logger, timestamp, packet, mode)
             #time1 = time.time()
             # Update the flow with packet info:
-            flow.update(packet)
+            self.flow.update(packet)
             #time2 = time.time()
             #self.logger.debug("Packet time is %s flow time is %s", time1 - time0, time2 - time1)
 
@@ -119,6 +125,33 @@ class Flows(BaseClass):
                 flows_result.append(flow)
         return flows_result
 
+    def get_flows_perf(self):
+        """
+        Prints out stats for performance of this module
+        """
+        print("Flow lookup:")
+        stats = self.flow.stats_lookup_found
+        _min = "{0:.4f}".format(stats.minimum())
+        _mean = "{0:.4f}".format(stats.mean())
+        _max = "{0:.4f}".format(stats.maximum())
+        print("     Found:", _min, "(Min), ", _mean, "(Mean), ", _max, "(Max)")
+        stats = self.flow.stats_lookup_notfound
+        _min = "{0:.4f}".format(stats.minimum())
+        _mean = "{0:.4f}".format(stats.mean())
+        _max = "{0:.4f}".format(stats.maximum())
+        print("  NotFound:", _min, "(Min), ", _mean, "(Mean), ", _max, "(Max)")
+        print("Flow write:")
+        stats = self.flow.stats_update_existing
+        _min = "{0:.4f}".format(stats.minimum())
+        _mean = "{0:.4f}".format(stats.mean())
+        _max = "{0:.4f}".format(stats.maximum())
+        print("  Existing:", _min, "(Min), ", _mean, "(Mean), ", _max, "(Max)")
+        stats = self.flow.stats_write_new
+        _min = "{0:.4f}".format(stats.minimum())
+        _mean = "{0:.4f}".format(stats.mean())
+        _max = "{0:.4f}".format(stats.maximum())
+        print("       New:", _min, "(Min), ", _mean, "(Mean), ", _max, "(Max)")
+
 class Flow(object):
     """
     An object that represents summary for an individual flow
@@ -131,7 +164,7 @@ class Flow(object):
         flowStart,flowEnd,flowDuration,
         min_piat,max_piat,avg_piat,std_dev_piat
 
-    Designed to be instantiated by the Flows class
+    Designed to be instantiated once by the Flows class
     """
     def __init__(self, logger, flows_col):
         """
@@ -147,6 +180,11 @@ class Flow(object):
         self.proto = 0
         self.tp_src = 0
         self.tp_dst = 0
+        # For recording timing stats:
+        self.stats_lookup_found = Statistics()
+        self.stats_lookup_notfound = Statistics()
+        self.stats_update_existing = Statistics()
+        self.stats_write_new = Statistics()
 
     def db_dict(self):
         """
@@ -168,14 +206,15 @@ class Flow(object):
         Add or update flow in flows_col database collection
         """
         self.flow_hash = packet.flow_hash
-
+        time0 = time.time()
         # Look up flow hash in DB col:
         db_query = {'flow_hash': self.flow_hash}
         flow_doc = self.flows_col.find_one(db_query)
-
+        
         if flow_doc:
-            #self.logger.debug("found existing flow hash=%s", self.flow_hash)
             # Found existing flow doc in DB:
+            time1 = time.time()
+            self.stats_lookup_found.push(time1 - time0)
             self.packet_count = flow_doc['packet_count'] + 1
             # Reuse original packet headers (retain first packet direction):
             self.ip_src = flow_doc['ip_src']
@@ -185,8 +224,11 @@ class Flow(object):
             self.tp_dst = flow_doc['tp_dst']
             # Update document in DB collection:
             self.flows_col.update(db_query, self.db_dict())
+            time2 = time.time()
+            self.stats_update_existing.push(time2 - time1)
         else:
-            #self.logger.debug("create new flow hash=%s", packet.flow_hash)
+            time1 = time.time()
+            self.stats_lookup_notfound.push(time1 - time0)
             # No flow doc in DB so create new:
             self.packet_count = 1
             # Read packet headers from supplied packet:
@@ -197,12 +239,14 @@ class Flow(object):
             self.tp_dst = packet.tp_dst
             # Write to DB collection:
             self.flows_col.insert_one(self.db_dict())
+            time2 = time.time()
+            self.stats_write_new.push(time2 - time1)
 
 class Packet(object):
     """
     An object that represents a packet
     """
-    def __init__(self, timestamp, packet, mode):
+    def __init__(self, logger, timestamp, packet, mode):
         """
         Parameters:
             timestamp: when packet was recorded
@@ -210,6 +254,7 @@ class Packet(object):
             mode: b (bidirectional) or u (unidirectional). Used for
             hash calculation
         """
+        self.logger = logger
         #*** Initialise packet variables:
         self.flow_hash = 0
         self.timestamp = 0
@@ -228,7 +273,7 @@ class Packet(object):
 
         # Ignore if non-IP packet:
         if not (isinstance(eth.data, dpkt.ip.IP) or isinstance(eth.data, dpkt.ip6.IP6)):
-            print 'Non IP Packet type not supported %s\n' % eth.data.__class__.__name__
+            self.logger.debug("Non IP Packet type not supported %s", eth.data.__class__.__name__)
             return
 
         ip = eth.data

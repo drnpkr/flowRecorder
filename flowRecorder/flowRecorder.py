@@ -138,6 +138,7 @@ class FlowRecorder(BaseClass):
                 self.logger.debug("Process packets time is %s seconds", time2 - time1)
         # TBD
         #flows_result = self.flows.get_flows()
+        self.flows.get_flows_perf()
 
 def print_help():
     """

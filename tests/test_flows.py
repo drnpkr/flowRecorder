@@ -41,7 +41,7 @@ def test_packet():
         pcap_file_handle = dpkt.pcap.Reader(pcap_file)
         for timestamp, pcap_packet in pcap_file_handle:
             #*** Instantiate an instance of Packet class:
-            packet = flows_module.Packet(timestamp, pcap_packet, mode)
+            packet = flows_module.Packet(logger, timestamp, pcap_packet, mode)
             pkt_test(packet, pkts, packet_number)
             packet_number += 1
     

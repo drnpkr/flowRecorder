@@ -63,7 +63,7 @@ def test_hash_b5():
         pcap_file_handle = dpkt.pcap.Reader(pcap_file)
         for timestamp, pcap_packet in pcap_file_handle:
             #*** Instantiate an instance of Packet class:
-            packet = flows_module.Packet(timestamp, pcap_packet, mode)
+            packet = flows_module.Packet(logger, timestamp, pcap_packet, mode)
             if packet_number == 1:
                 flow_hash_packet_1 = packet.flow_hash
             else:
