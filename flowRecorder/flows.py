@@ -29,17 +29,21 @@ import os
 # For packet methods:
 import socket
 
+# For Python 2.x compatibility: 
+from __future__ import division
+
 # For time conversions:
 from datetime import datetime
 import calendar
+
+# For math operations:
+import numpy as np
 
 # Import runstats for code performance statistics:
 # Install with: pip install runstats --user
 from runstats import Statistics
 
-# mongodb Database Import:
-import pymongo
-from pymongo import MongoClient
+from collections import defaultdict
 
 # Import dpkt for packet parsing:
 import dpkt
@@ -57,37 +61,17 @@ class Flows(BaseClass):
     """
     def __init__(self, config):
         """ Initialise the Flows Class """
-        #*** Required for BaseClass:
+        # Required for BaseClass:
         self.config = config
-        #*** Set up Logging with inherited base class method:
+        # Set up Logging with inherited base class method:
         self.configure_logging(__name__, "flows_logging_level_s",
                                        "flows_logging_level_c")
 
-        # Get MongoDB parameters from config:
-        mongo_addr = config.get_value("mongo_addr")
-        mongo_port = config.get_value("mongo_port")
-        mongo_dbname = config.get_value("mongo_dbname")
-
-        # Start PyMongo connection to MongoDB:
-        self.logger.info("Connecting to MongoDB database...")
-        mongo_client = MongoClient(mongo_addr, mongo_port)
-
-        #*** Connect to MongoDB database:
-        db = mongo_client[mongo_dbname]
-
-        #*** Set up MongoDB flows collection:
-        self.logger.debug("Deleting flows MongoDB collection...")
-        db.flows.drop()
-        #*** Create the flows collection:
-        self.flows_col = db.create_collection('flows')
+        # Python dictionary to hold flows:
+        flow_cache = defaultdict(dict)
 
         # Create a Flow object for flow operations:
-        self.flow = Flow(self.logger, self.flows_col)
-
-        # TBD CREATE MongoDB INDEXES:
-
-        #Create indexes on raw_data collection to improve searching:
-        self.flows_col.create_index([('flow_hash', pymongo.DESCENDING),])
+        self.flow = Flow(self.logger, flow_cache)
 
     def ingest_pcap(self, dpkt_reader, mode):
         """
@@ -112,9 +96,10 @@ class Flows(BaseClass):
             #time2 = time.time()
             #self.logger.debug("Packet time is %s flow time is %s", time1 - time0, time2 - time1)
 
-    def get_flows(self):
+    def get_flows_old(self):
         """
         Returns a list of all flows in the data set
+        (OLD - MongoDB)
         """
         flows_result = []
         flows_cursor = self.flows_col.find({})
@@ -166,79 +151,96 @@ class Flow(object):
 
     Designed to be instantiated once by the Flows class
     """
-    def __init__(self, logger, flows_col):
+    def __init__(self, logger, flow_cache):
         """
-        Pass it references to logger and flows_col MongoDB collection
+        Initialise with references to logger and flow_cache dictionary
         """
         self.logger = logger
-        self.flows_col = flows_col
-        # Initialise flow variables:
-        self.flow_hash = 0
-        self.packet_count = 0
-        self.ip_src = 0
-        self.ip_dst = 0
-        self.proto = 0
-        self.tp_src = 0
-        self.tp_dst = 0
-        # For recording timing stats:
+        self.flow_cache = flow_cache
+        # Instantiate classes for recording perf timing stats:
         self.stats_lookup_found = Statistics()
         self.stats_lookup_notfound = Statistics()
         self.stats_update_existing = Statistics()
         self.stats_write_new = Statistics()
 
-    def db_dict(self):
-        """
-        Return a dictionary object of selected flow
-        parameters for storing in the database
-        """
-        dbdictresult = {}
-        dbdictresult['flow_hash'] = self.flow_hash
-        dbdictresult['packet_count'] = self.packet_count
-        dbdictresult['ip_src'] = self.ip_src
-        dbdictresult['ip_dst'] = self.ip_dst
-        dbdictresult['proto'] = self.proto
-        dbdictresult['tp_src'] = self.tp_src
-        dbdictresult['tp_dst'] = self.tp_dst
-        return dbdictresult
-
     def update(self, packet):
         """
         Add or update flow in flows_col database collection
         """
-        self.flow_hash = packet.flow_hash
+        flow_hash = packet.flow_hash
         time0 = time.time()
-        # Look up flow hash in DB col:
-        db_query = {'flow_hash': self.flow_hash}
-        flow_doc = self.flows_col.find_one(db_query)
-        
-        if flow_doc:
+
+        if flow_hash in self.flow_cache:
+            # Retrieve flow hash dict:
+            flow_dict = self.flow_cache[flow_hash]
             # Found existing flow doc in DB:
             time1 = time.time()
             self.stats_lookup_found.push(time1 - time0)
-            self.packet_count = flow_doc['packet_count'] + 1
-            # Reuse original packet headers (retain first packet direction):
-            self.ip_src = flow_doc['ip_src']
-            self.ip_dst = flow_doc['ip_dst']
-            self.proto = flow_doc['proto']
-            self.tp_src = flow_doc['tp_src']
-            self.tp_dst = flow_doc['tp_dst']
-            # Update document in DB collection:
-            self.flows_col.update(db_query, self.db_dict())
+            # Store size of this packet:
+            flow_dict['packet_lengths'][flow_dict['pktTotalCount'] + 1] = packet.length
+            # Update the count of packets and octets:
+            flow_dict['pktTotalCount'] += 1
+            flow_dict['octetTotalCount'] += packet.length
+            # Update the min/max/avg/std_dev of the packet sizes:
+            flow_dict['min_ps'] = min(flow_dict['length'].values())
+            flow_dict['max_ps'] = max(flow_dict['length'].values())
+            flow_dict['avg_ps'] = flow_dict['octetTotalCount'] / flow_dict['pktTotalCount']
+            flow_dict['std_dev_ps'] = np.std(list(packets[flow_id]['length'].values()))
+            # Store the timestamps of the newly captured packets:
+            flow_dict['times'][flow_dict['pktTotalCount']] = packet.timestamp
+            # As we have now at least 2 packets in the flow, we can calculate the packet-inter-arrival-time.
+            # We decrement the packet counter every single time, otherwise it would start from 2
+            # The first piat will be the current timestamp minus the timestamp of the previous packet:
+            flow_dict['iats'][flow_dict['pktTotalCount']-1] = \
+                flow_dict['times'][flow_dict['pktTotalCount']] \
+                - flow_dict['times'][flow_dict['pktTotalCount']-1]
+            # Update the flow end/duration (the start does not change)
+            flow_dict['flowEnd'] = packet.timestamp
+            flow_dict['flowDuration'] = (packet.timestamp - flow_dict['flowStart'])
+            # at last update the min/max/avg/std_dev of packet-inter-arrival-times
+            flow_dict['min_piat'] = min(flow_dict['iats'].values())
+            flow_dict['max_piat'] = max(flow_dict['iats'].values())
+            flow_dict['avg_piat'] = sum(flow_dict['iats'].values()) / flow_dict['pktTotalCount']
+            flow_dict['std_dev_piat'] = np.std(list(flow_dict['iats'].values()))
             time2 = time.time()
             self.stats_update_existing.push(time2 - time1)
         else:
+            # Create new key etc in flow dict for this flow:
             time1 = time.time()
             self.stats_lookup_notfound.push(time1 - time0)
-            # No flow doc in DB so create new:
-            self.packet_count = 1
-            # Read packet headers from supplied packet:
-            self.ip_src = packet.ip_src
-            self.ip_dst = packet.ip_dst
-            self.proto = packet.proto
-            self.tp_src = packet.tp_src
-            self.tp_dst = packet.tp_dst
-            # Write to DB collection:
-            self.flows_col.insert_one(self.db_dict())
+            # Initialise the new flow key:
+            self.flow_cache[flow_hash] = {}
+            flow_dict = self.flow_cache[flow_hash]
+            # Store the flow parameters for packet header values:
+            flow_dict['src_ip'] = packet.ip_src
+            flow_dict['dst_ip'] = packet.ip_dst
+            flow_dict['proto'] = packet.proto
+            flow_dict['src_port'] = packet.tp_src
+            flow_dict['dst_port'] = packet.tp_dst
+            # Store the size of the first packet:
+            flow_dict['packet_lengths'][1] = packet.length
+            # Store the packet size and number of octets:
+            flow_dict['pktTotalCount'] = 1
+            flow_dict['octetTotalCount'] = packet.length
+            # Set the min/max/avg/std_dev of packet sizes
+            # (in case there will be no more packets belonging to the flow):
+            flow_dict['min_ps'] = packet.length
+            flow_dict['max_ps'] = packet.length
+            flow_dict['avg_ps'] = packet.length
+            flow_dict['std_dev_ps'] = np.std(list(flow_dict['packet_lengths'].values()))
+            # Store the timestamps of the packets:
+            flow_dict['times'][1] = packet.timestamp
+            # store the flow start/end/duration
+            flow_dict['flowStart'] = packet.timestamp
+            flow_dict['flowEnd'] = packet.timestamp
+            flow_dict['flowDuration'] = 0
+            # Set the min/max/avg/std_dev of packet-inter arrival times
+            # (in case there will be no more packets belonging to the flow):
+            flow_dict['min_piat'] = 0
+            flow_dict['max_piat'] = 0
+            flow_dict['avg_piat'] = 0
+            flow_dict['std_dev_piat'] = 0
+            # Record time for performance measurement:
             time2 = time.time()
             self.stats_write_new.push(time2 - time1)
 
