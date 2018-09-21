@@ -70,10 +70,11 @@ class FlowRecorder(BaseClass):
                                        "flowRecorder_logging_level_c")
 
         # Parse command line parameters:
-        self.direction = ""
         self.input_filename = ""
         self.interface = ""
         self.output_filename = ""
+        # Direction parameter recorded in mode:
+        self.mode = ""
         try:
             opts, args = getopt.getopt(CLI_arguments, "d:f:hi:o:v",
                                     ["direction=",
@@ -88,7 +89,7 @@ class FlowRecorder(BaseClass):
             sys.exit(2)
         for opt, arg in opts:
             if opt in ("-d", "--direction"):
-                self.direction = arg
+                self.mode = arg
             elif opt in ("-f", "--file"):
                 self.input_filename = arg
             elif opt in ("-h", "--help"):
@@ -105,6 +106,16 @@ class FlowRecorder(BaseClass):
                 print("ERROR: unhandled argument", opt)
                 sys.exit()
 
+        # Assume bidirectional if not specified:
+        if not self.mode:
+            logger.info("Direction not specified. Defaulting to bidirectional")
+            self.mode = 'b'
+        else:
+            # Sanity check direction input:
+            if self.mode != ('b' or 'u'):
+                logger.critical("Invalid direction %s", self.mode)
+                sys.exit()
+
         # Must have a file OR interface specified:
         if self.input_filename and self.interface:
             logger.critical("file and interface specified. Choose only one")
@@ -114,7 +125,7 @@ class FlowRecorder(BaseClass):
             sys.exit()
 
         # Instantiate Flows Class:
-        self.flows = flows.Flows(self.config)
+        self.flows = flows.Flows(self.config, self.mode)
 
     def run(self):
         """
@@ -127,13 +138,18 @@ class FlowRecorder(BaseClass):
             with open(self.input_filename, 'rb') as pcap_file:
                 pcap_file_handle = dpkt.pcap.Reader(pcap_file)
                 time1 = time.time()
-                self.logger.debug("Open file time is %s seconds", time1 - time0)
-                self.flows.ingest_pcap(pcap_file_handle, 'b')
+                self.logger.info("Opened PCAP in %s seconds", time1 - time0)
+                self.flows.ingest_pcap(pcap_file_handle)
                 time2 = time.time()
-                self.logger.debug("Process packets time is %s seconds", time2 - time1)
-        # TBD
+                self.logger.info("Processed in %s seconds", time2 - time1)
         flows_result = self.flows.get_flows()
-        self.flows.get_flows_perf()
+        # TBD: Write to file
+        time3 = time.time()
+        self.logger.info("Wrote results in %s seconds", time3 - time2)
+        self.flows.perf()
+        self.flows.stats()
+        time4 = time.time()
+        self.logger.info("Finished, total time %s seconds", time4 - time0)
 
 def print_help():
     """
@@ -163,6 +179,7 @@ records in bidirection, the following command can be used:
 
 Options:
  -d  --direction     Unidirectional (u) or Bidirectional (b) flows
+                     (default is b)
  -f  --file          Input PCAP filename
  -h  --help          Display this help and exit
  -i  --interface     Name of interface (NIC) to capture from
