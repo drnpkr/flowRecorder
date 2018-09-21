@@ -1,11 +1,11 @@
 #    Copyright 2018 Adrian Pekar
-# 
+#
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
 #    You may obtain a copy of the License at
-# 
+#
 #        http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 #    Unless required by applicable law or agreed to in writing, software
 #    distributed under the License is distributed on an "AS IS" BASIS,
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,17 +21,12 @@ either from live capture or from capture file
 
 import time
 
-# For file path:
-import os
-
 # Import sys and getopt for command line argument parsing:
 import sys
 import getopt
 
 # Logging:
 import logging
-
-import traceback
 
 # Colorise the logs:
 import coloredlogs
@@ -180,4 +175,3 @@ if __name__ == "__main__":
     flowRecorder = FlowRecorder(sys.argv[1:])
     # Start flowRecorder with command line arguments from position 1:
     flowRecorder.run()
-

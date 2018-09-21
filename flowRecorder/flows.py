@@ -19,21 +19,19 @@ This data library represents network flows
 It stores cummulative information (not individual packets)
 about flows in a MongoDB collection
 """
-# For Python 2.x compatibility: 
+# For Python 2.x compatibility:
 from __future__ import print_function
 from __future__ import division
 
 # General imports:
 import time
 import sys
-import os
 
 # For packet methods:
 import socket
 
-# For time conversions:
-from datetime import datetime
-import calendar
+# For flows dictionary:
+from collections import defaultdict
 
 # For math operations:
 import numpy as np
@@ -41,8 +39,6 @@ import numpy as np
 # Import runstats for code performance statistics:
 # Install with: pip install runstats --user
 from runstats import Statistics
-
-from collections import defaultdict
 
 # Import dpkt for packet parsing:
 import dpkt
@@ -87,7 +83,7 @@ class Flows(BaseClass):
         # For each packet in the pcap process the contents:
         for timestamp, packet in dpkt_reader:
             #time0 = time.time()
-            #*** Instantiate an instance of Packet class with packet info:
+            # Instantiate an instance of Packet class with packet info:
             packet = Packet(self.logger, timestamp, packet, mode)
             #time1 = time.time()
             # Update the flow with packet info:
@@ -128,20 +124,6 @@ class Flows(BaseClass):
             flow_csv += str(flow_dict['avg_piat']) + ','
             flow_csv += str(flow_dict['std_dev_piat'])
             flows_result.append(flow_csv)
-        return flows_result
-
-    def get_flows_old(self):
-        """
-        Returns a list of all flows in the data set
-        (OLD - MongoDB)
-        """
-        flows_result = []
-        flows_cursor = self.flows_col.find({})
-        self.logger.debug("Found %s flows", flows_cursor.count())
-        if flows_cursor.count():
-            for flow in flows_cursor:
-                self.logger.debug("Found flow=%s", flow)
-                flows_result.append(flow)
         return flows_result
 
     def get_flows_perf(self):
@@ -206,11 +188,12 @@ class Flow(object):
 
         if flow_hash in self.flow_cache:
             # Found existing flow in dict
-            flow_dict = self.flow_cache[flow_hash]            
+            flow_dict = self.flow_cache[flow_hash]
             time1 = time.time()
             self.stats_lookup_found.push(time1 - time0)
             # Store size of this packet:
-            flow_dict['packet_lengths'][flow_dict['pktTotalCount'] + 1] = packet.length
+            flow_dict['packet_lengths'][flow_dict['pktTotalCount'] + 1] = \
+                                                                  packet.length
             # Update the count of packets and octets:
             flow_dict['pktTotalCount'] += 1
             flow_dict['octetTotalCount'] += packet.length
@@ -295,7 +278,7 @@ class Packet(object):
         self.logger = logger
         #*** Initialise packet variables:
         self.flow_hash = 0
-        self.timestamp = 0
+        self.timestamp = timestamp
         self.length = len(packet)
         self.ip_src = 0
         self.ip_dst = 0
@@ -357,7 +340,6 @@ class Packet(object):
         elif mode == 'u':
             # TBD:
             logger.critical("unsupported mode=%s - not written yet", mode)
-            pass
         else:
             logger.critical("unsupported mode=%s", mode)
             sys.exit()
