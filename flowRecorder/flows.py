@@ -19,18 +19,17 @@ This data library represents network flows
 It stores cummulative information (not individual packets)
 about flows in a MongoDB collection
 """
+# For Python 2.x compatibility: 
 from __future__ import print_function
+from __future__ import division
 
+# General imports:
 import time
-
 import sys
 import os
 
 # For packet methods:
 import socket
-
-# For Python 2.x compatibility: 
-from __future__ import division
 
 # For time conversions:
 from datetime import datetime
@@ -68,10 +67,10 @@ class Flows(BaseClass):
                                        "flows_logging_level_c")
 
         # Python dictionary to hold flows:
-        flow_cache = defaultdict(dict)
+        self.flow_cache = defaultdict(dict)
 
         # Create a Flow object for flow operations:
-        self.flow = Flow(self.logger, flow_cache)
+        self.flow = Flow(self.logger, self.flow_cache)
 
     def ingest_pcap(self, dpkt_reader, mode):
         """
@@ -95,6 +94,41 @@ class Flows(BaseClass):
             self.flow.update(packet)
             #time2 = time.time()
             #self.logger.debug("Packet time is %s flow time is %s", time1 - time0, time2 - time1)
+
+    def get_flows(self):
+        """
+        Returns a CSV-format list of all flows in the data set:
+            flow_id,
+            src_ip,src_port,dst_ip,dst_port,proto,
+            pktTotalCount,octetTotalCount,
+            min_ps,max_ps,avg_ps,std_dev_ps,
+            flowStart,flowEnd,flowDuration,
+            min_piat,max_piat,avg_piat,std_dev_piat
+        """
+        flows_result = []
+        flow_csv = ""
+        for key, flow_dict in self.flow_cache.iteritems():
+            flow_csv += str(key) + ','
+            flow_csv += str(flow_dict['src_ip']) + ','
+            flow_csv += str(flow_dict['src_port']) + ','
+            flow_csv += str(flow_dict['dst_ip']) + ','
+            flow_csv += str(flow_dict['dst_port']) + ','
+            flow_csv += str(flow_dict['proto']) + ','
+            flow_csv += str(flow_dict['pktTotalCount']) + ','
+            flow_csv += str(flow_dict['octetTotalCount']) + ','
+            flow_csv += str(flow_dict['min_ps']) + ','
+            flow_csv += str(flow_dict['max_ps']) + ','
+            flow_csv += str(flow_dict['avg_ps']) + ','
+            flow_csv += str(flow_dict['std_dev_ps']) + ','
+            flow_csv += str(flow_dict['flowStart']) + ','
+            flow_csv += str(flow_dict['flowEnd']) + ','
+            flow_csv += str(flow_dict['flowDuration']) + ','
+            flow_csv += str(flow_dict['min_piat']) + ','
+            flow_csv += str(flow_dict['max_piat']) + ','
+            flow_csv += str(flow_dict['avg_piat']) + ','
+            flow_csv += str(flow_dict['std_dev_piat'])
+            flows_result.append(flow_csv)
+        return flows_result
 
     def get_flows_old(self):
         """
@@ -171,9 +205,8 @@ class Flow(object):
         time0 = time.time()
 
         if flow_hash in self.flow_cache:
-            # Retrieve flow hash dict:
-            flow_dict = self.flow_cache[flow_hash]
-            # Found existing flow doc in DB:
+            # Found existing flow in dict
+            flow_dict = self.flow_cache[flow_hash]            
             time1 = time.time()
             self.stats_lookup_found.push(time1 - time0)
             # Store size of this packet:
@@ -182,10 +215,10 @@ class Flow(object):
             flow_dict['pktTotalCount'] += 1
             flow_dict['octetTotalCount'] += packet.length
             # Update the min/max/avg/std_dev of the packet sizes:
-            flow_dict['min_ps'] = min(flow_dict['length'].values())
-            flow_dict['max_ps'] = max(flow_dict['length'].values())
+            flow_dict['min_ps'] = min(flow_dict['packet_lengths'].values())
+            flow_dict['max_ps'] = max(flow_dict['packet_lengths'].values())
             flow_dict['avg_ps'] = flow_dict['octetTotalCount'] / flow_dict['pktTotalCount']
-            flow_dict['std_dev_ps'] = np.std(list(packets[flow_id]['length'].values()))
+            flow_dict['std_dev_ps'] = np.std(list(flow_dict['packet_lengths'].values()))
             # Store the timestamps of the newly captured packets:
             flow_dict['times'][flow_dict['pktTotalCount']] = packet.timestamp
             # As we have now at least 2 packets in the flow, we can calculate the packet-inter-arrival-time.
@@ -218,6 +251,7 @@ class Flow(object):
             flow_dict['src_port'] = packet.tp_src
             flow_dict['dst_port'] = packet.tp_dst
             # Store the size of the first packet:
+            flow_dict['packet_lengths'] = {}
             flow_dict['packet_lengths'][1] = packet.length
             # Store the packet size and number of octets:
             flow_dict['pktTotalCount'] = 1
@@ -229,7 +263,9 @@ class Flow(object):
             flow_dict['avg_ps'] = packet.length
             flow_dict['std_dev_ps'] = np.std(list(flow_dict['packet_lengths'].values()))
             # Store the timestamps of the packets:
+            flow_dict['times'] = {}
             flow_dict['times'][1] = packet.timestamp
+            flow_dict['iats'] = {}
             # store the flow start/end/duration
             flow_dict['flowStart'] = packet.timestamp
             flow_dict['flowEnd'] = packet.timestamp
