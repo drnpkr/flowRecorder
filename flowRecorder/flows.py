@@ -193,31 +193,43 @@ class Flow(object):
         time0 = time.time()
         if packet.flow_hash in self.flow_cache:
             # Found existing flow in dict, update it:
-            self._update_found(packet, time0)
+            time1 = time.time()
+            self.stats_lookup_found.push(time1 - time0)
+            self._update_found(packet)
+            if self.mode == 'b':
+                self._update_found_bidir(packet)
+            # Update time stats:
+            time2 = time.time()
+            self.stats_update_existing.push(time2 - time1)
         else:
             # Flow doesn't exist yet, create it:
-            self._create_new(packet, time0)
-
-    def _update_found(self, packet, time0):
+            time1 = time.time()
+            self.stats_lookup_notfound.push(time1 - time0)
+            self._create_new(packet)
+            if self.mode == 'b':
+                self._create_new_bidir(packet)
+            # Update time stats:
+            time2 = time.time()
+            self.stats_write_new.push(time2 - time1)
+        
+    def _update_found(self, packet):
         """
         Update existing flow in flow_cache dictionary with standard
         (non-bidirectional) parameters
         """
         flow_hash = packet.flow_hash
         flow_dict = self.flow_cache[flow_hash]
-        time1 = time.time()
-        self.stats_lookup_found.push(time1 - time0)
         # Store size of this packet:
-        flow_dict['packet_lengths'][flow_dict['pktTotalCount'] + 1] = \
+        flow_dict['length'][flow_dict['pktTotalCount'] + 1] = \
                                                               packet.length
         # Update the count of packets and octets:
         flow_dict['pktTotalCount'] += 1
         flow_dict['octetTotalCount'] += packet.length
         # Update the min/max/avg/std_dev of the packet sizes:
-        flow_dict['min_ps'] = min(flow_dict['packet_lengths'].values())
-        flow_dict['max_ps'] = max(flow_dict['packet_lengths'].values())
+        flow_dict['min_ps'] = min(flow_dict['length'].values())
+        flow_dict['max_ps'] = max(flow_dict['length'].values())
         flow_dict['avg_ps'] = flow_dict['octetTotalCount'] / flow_dict['pktTotalCount']
-        flow_dict['std_dev_ps'] = np.std(list(flow_dict['packet_lengths'].values()))
+        flow_dict['std_dev_ps'] = np.std(list(flow_dict['length'].values()))
         # Store the timestamps of the newly captured packets:
         flow_dict['times'][flow_dict['pktTotalCount']] = packet.timestamp
         # As we have now at least 2 packets in the flow, we can calculate the packet-inter-arrival-time.
@@ -234,18 +246,25 @@ class Flow(object):
         flow_dict['max_piat'] = max(flow_dict['iats'].values())
         flow_dict['avg_piat'] = sum(flow_dict['iats'].values()) / flow_dict['pktTotalCount']
         flow_dict['std_dev_piat'] = np.std(list(flow_dict['iats'].values()))
-        time2 = time.time()
-        self.stats_update_existing.push(time2 - time1)
 
-    def _create_new(self, packet, time0):
+    def _update_found_bidir(self, packet):
+        """
+        Update existing flow in flow_cache dictionary with
+        bidirectional parameters (in addition to standard parameters)
+        """
+        flow_hash = packet.flow_hash
+        flow_dict = self.flow_cache[flow_hash]
+
+        # Determine packet direction (f=forward, r=reverse):
+        direction = self.packet_dir(packet)
+
+    def _create_new(self, packet):
         """
         Create new flow in flow_cache dictionary with standard
         (non-bidirectional) parameters
         """
         flow_hash = packet.flow_hash
         # Create new key etc in flow dict for this flow:
-        time1 = time.time()
-        self.stats_lookup_notfound.push(time1 - time0)
         # Initialise the new flow key:
         self.flow_cache[flow_hash] = {}
         flow_dict = self.flow_cache[flow_hash]
@@ -256,8 +275,8 @@ class Flow(object):
         flow_dict['src_port'] = packet.tp_src
         flow_dict['dst_port'] = packet.tp_dst
         # Store the size of the first packet:
-        flow_dict['packet_lengths'] = {}
-        flow_dict['packet_lengths'][1] = packet.length
+        flow_dict['length'] = {}
+        flow_dict['length'][1] = packet.length
         # Store the packet size and number of octets:
         flow_dict['pktTotalCount'] = 1
         flow_dict['octetTotalCount'] = packet.length
@@ -266,7 +285,7 @@ class Flow(object):
         flow_dict['min_ps'] = packet.length
         flow_dict['max_ps'] = packet.length
         flow_dict['avg_ps'] = packet.length
-        flow_dict['std_dev_ps'] = np.std(list(flow_dict['packet_lengths'].values()))
+        flow_dict['std_dev_ps'] = np.std(list(flow_dict['length'].values()))
         # Store the timestamps of the packets:
         flow_dict['times'] = {}
         flow_dict['times'][1] = packet.timestamp
@@ -281,11 +300,22 @@ class Flow(object):
         flow_dict['max_piat'] = 0
         flow_dict['avg_piat'] = 0
         flow_dict['std_dev_piat'] = 0
-        # Record time for performance measurement:
-        time2 = time.time()
-        self.stats_write_new.push(time2 - time1)
 
+    def _create_new_bidir(self, packet):
+        """
+        Add bidir parameters to new flow in flow_cache dictionary
+        """
+        flow_hash = packet.flow_hash
 
+        # Determine packet direction (f=forward, r=reverse):
+        direction = self.packet_dir(packet)
+
+    def packet_dir(self, packet):
+        """
+        Determine packet direction (f=forward, r=reverse)
+        """
+        # TBD
+        pass
 
 class Packet(object):
     """

@@ -135,10 +135,12 @@ class FlowRecorder(BaseClass):
         time0 = time.time()
         if self.input_filename:
             self.logger.info("Opening PCAP file=%s", self.input_filename)
+            # Open the PCAP file:
             with open(self.input_filename, 'rb') as pcap_file:
                 pcap_file_handle = dpkt.pcap.Reader(pcap_file)
                 time1 = time.time()
                 self.logger.info("Opened PCAP in %s seconds", time1 - time0)
+                # Process PCAP packets into flows:
                 self.flows.ingest_pcap(pcap_file_handle)
                 time2 = time.time()
                 self.logger.info("Processed in %s seconds", time2 - time1)
