@@ -256,7 +256,7 @@ class Flow(object):
         flow_dict = self.flow_cache[flow_hash]
 
         # Determine packet direction (f=forward, r=reverse):
-        direction = self.packet_dir(packet)
+        direction = self.packet_dir(packet, flow_dict)
 
     def _create_new(self, packet):
         """
@@ -306,16 +306,22 @@ class Flow(object):
         Add bidir parameters to new flow in flow_cache dictionary
         """
         flow_hash = packet.flow_hash
+        flow_dict = self.flow_cache[flow_hash]
 
         # Determine packet direction (f=forward, r=reverse):
-        direction = self.packet_dir(packet)
+        direction = self.packet_dir(packet, flow_dict)
 
-    def packet_dir(self, packet):
+    def packet_dir(self, packet, flow_dict):
         """
         Determine packet direction (f=forward, r=reverse)
         """
-        # TBD
-        pass
+        if packet.ip_src == flow_dict['src_ip']:
+            return 'f'
+        elif packet.ip_src == flow_dict['dst_ip']:
+            return 'b'
+        else:
+            logger.critical("Uh oh, something went wrong. Exiting")
+            sys.exit()
 
 class Packet(object):
     """

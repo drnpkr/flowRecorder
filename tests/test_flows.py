@@ -32,7 +32,7 @@ TEST_PCAP_HTTP1 = '../tests/packet_captures/http1.pcap'
 
 def test_packet():
     """
-    Test packet class works correctly.
+    Test packet class works correctly
     """
     # For each packet in the pcap process the contents:
     mode = 'b'
@@ -45,6 +45,31 @@ def test_packet():
             pkt_test(packet, pkts, packet_number)
             packet_number += 1
     
+    # TBD: check mode=u
+
+def test_packet_dir():
+    """
+    Test Flow class packet_dir method works correctly
+    """
+    # For each packet in the pcap process the contents:
+    mode = 'b'
+    packet_number = 1
+    flows_instance = flows_module.Flows(config, mode)
+    with open(TEST_PCAP_HTTP1, 'rb') as pcap_file:
+        pcap_file_handle = dpkt.pcap.Reader(pcap_file)
+        for timestamp, pcap_packet in pcap_file_handle:
+            #*** Instantiate an instance of Packet class:
+            packet = flows_module.Packet(logger, timestamp, pcap_packet, mode)
+            flows_instance.flow.update(packet)
+            flow_dict = flows_instance.flow_cache[packet.flow_hash]
+            logger.info("pkt=%s ground_truth=%s", packet_number - 1, pkts.DIRECTION[packet_number - 1])
+            logger.info("packet_dir=%s", flows_instance.flow.packet_dir(packet, flow_dict))
+            if pkts.DIRECTION[packet_number - 1] == 'c2s':
+                assert flows_instance.flow.packet_dir(packet, flow_dict) == 'f'
+            else:
+                assert flows_instance.flow.packet_dir(packet, flow_dict) == 'b'
+            packet_number += 1
+
     # TBD: check mode=u
 
 

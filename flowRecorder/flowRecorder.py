@@ -112,7 +112,7 @@ class FlowRecorder(BaseClass):
             self.mode = 'b'
         else:
             # Sanity check direction input:
-            if self.mode != ('b' or 'u'):
+            if self.mode != 'b' and  self.mode != 'u':
                 logger.critical("Invalid direction %s", self.mode)
                 sys.exit()
 
