@@ -254,9 +254,70 @@ class Flow(object):
         """
         flow_hash = packet.flow_hash
         flow_dict = self.flow_cache[flow_hash]
-
         # Determine packet direction (f=forward, r=reverse):
         direction = self.packet_dir(packet, flow_dict)
+        # Update keys dependant on the direction (f or b):
+        if direction == 'f':
+            # Forward (f) direction
+            # Store size of this packet:
+            flow_dict['f_length'][flow_dict['f_pktTotalCount'] + 1] = \
+                                                                  packet.length
+            # Update the count of packets and octets:
+            flow_dict['f_pktTotalCount'] += 1
+            flow_dict['f_octetTotalCount'] += packet.length
+            # Update the min/max/avg/std_dev of the packet sizes:
+            flow_dict['f_min_ps'] = min(flow_dict['f_length'].values())
+            flow_dict['f_max_ps'] = max(flow_dict['f_length'].values())
+            flow_dict['f_avg_ps'] = flow_dict['f_octetTotalCount'] / flow_dict['f_pktTotalCount']
+            flow_dict['f_std_dev_ps'] = np.std(list(flow_dict['f_length'].values()))
+            # Store the timestamps of the newly captured packets:
+            flow_dict['f_times'][flow_dict['f_pktTotalCount']] = packet.timestamp
+            # Do inter-packet arrival time if have at least 2 packets:
+            if (flow_dict['f_pktTotalCount'] > 1):
+                flow_dict['f_iats'][flow_dict['f_pktTotalCount']-1] = \
+                    flow_dict['f_times'][flow_dict['f_pktTotalCount']] \
+                    - flow_dict['f_times'][flow_dict['f_pktTotalCount']-1]
+            # Update the flow end/duration (the start does not change)
+            flow_dict['f_flowEnd'] = packet.timestamp
+            flow_dict['f_flowDuration'] = (packet.timestamp - flow_dict['f_flowStart'])
+            # at last update the min/max/avg/std_dev of packet-inter-arrival-times
+            flow_dict['f_min_piat'] = min(flow_dict['f_iats'].values())
+            flow_dict['f_max_piat'] = max(flow_dict['f_iats'].values())
+            flow_dict['f_avg_piat'] = sum(flow_dict['f_iats'].values()) / flow_dict['f_pktTotalCount']
+            flow_dict['f_std_dev_piat'] = np.std(list(flow_dict['f_iats'].values()))
+        else:
+            # Backward (b) direction
+            # Note: this may be the first time we've see backwards dir packet.
+            # Store size of this packet:
+            flow_dict['b_length'][flow_dict['b_pktTotalCount'] + 1] = \
+                                                                  packet.length
+            # Update the count of packets and octets:
+            flow_dict['b_pktTotalCount'] += 1
+            flow_dict['b_octetTotalCount'] += packet.length
+            # Update the min/max/avg/std_dev of the packet sizes:
+            flow_dict['b_min_ps'] = min(flow_dict['b_length'].values())
+            flow_dict['b_max_ps'] = max(flow_dict['b_length'].values())
+            flow_dict['b_avg_ps'] = flow_dict['b_octetTotalCount'] / flow_dict['b_pktTotalCount']
+            flow_dict['b_std_dev_ps'] = np.std(list(flow_dict['b_length'].values()))
+            # Store the timestamps of the newly captured packets:
+            flow_dict['b_times'][flow_dict['b_pktTotalCount']] = packet.timestamp
+            # Do inter-packet arrival time if have at least 2 packets:
+            if (flow_dict['b_pktTotalCount'] < 2):
+                # First time, so set some stuff:
+                flow_dict['b_flowStart'] = packet.timestamp
+            else:
+                # Not first time:
+                flow_dict['b_iats'][flow_dict['b_pktTotalCount']-1] = \
+                    flow_dict['b_times'][flow_dict['b_pktTotalCount']] \
+                    - flow_dict['b_times'][flow_dict['b_pktTotalCount']-1]
+                flow_dict['b_flowDuration'] = (packet.timestamp - flow_dict['b_flowStart'])
+                # Update the min/max/avg/std_dev of packet-inter-arrival-times:
+                flow_dict['b_min_piat'] = min(flow_dict['b_iats'].values())
+                flow_dict['b_max_piat'] = max(flow_dict['b_iats'].values())
+                flow_dict['b_avg_piat'] = sum(flow_dict['b_iats'].values()) / flow_dict['b_pktTotalCount']
+                flow_dict['b_std_dev_piat'] = np.std(list(flow_dict['b_iats'].values()))
+            # Update the flow end/duration (the start does not change):
+            flow_dict['b_flowEnd'] = packet.timestamp
 
     def _create_new(self, packet):
         """
@@ -307,9 +368,68 @@ class Flow(object):
         """
         flow_hash = packet.flow_hash
         flow_dict = self.flow_cache[flow_hash]
-
+        # Set up keys in preparation:
+        flow_dict['f_length'] = {}
+        flow_dict['f_times'] = {}
+        flow_dict['f_iats'] = {}
+        flow_dict['b_length'] = {}
+        flow_dict['b_times'] = {}
+        flow_dict['b_iats'] = {}
+        flow_dict['b_pktTotalCount'] = 0
+        flow_dict['b_octetTotalCount'] = 0
         # Determine packet direction (f=forward, r=reverse):
         direction = self.packet_dir(packet, flow_dict)
+        # Update keys dependant on the direction (f or b):
+        if direction == 'f':
+            # Forward (f) direction
+            # Store the size of the first packet:
+            flow_dict['f_length'][1] = packet.length
+            # Store the packet size and number of octets:
+            flow_dict['f_pktTotalCount'] = 1
+            flow_dict['f_octetTotalCount'] = packet.length
+            # Set the min/max/avg/std_dev of packet sizes
+            # (in case there will be no more packets belonging to the flow):
+            flow_dict['f_min_ps'] = packet.length
+            flow_dict['f_max_ps'] = packet.length
+            flow_dict['f_avg_ps'] = packet.length
+            flow_dict['f_std_dev_ps'] = np.std(list(flow_dict['f_length'].values()))
+            # Store the timestamps of the packets:
+            flow_dict['f_times'][1] = packet.timestamp
+            # store the flow start/end/duration
+            flow_dict['f_flowStart'] = packet.timestamp
+            flow_dict['f_flowEnd'] = packet.timestamp
+            flow_dict['f_flowDuration'] = 0
+            # Set the min/max/avg/std_dev of packet-inter arrival times
+            # (in case there will be no more packets belonging to the flow):
+            flow_dict['f_min_piat'] = 0
+            flow_dict['f_max_piat'] = 0
+            flow_dict['f_avg_piat'] = 0
+            flow_dict['f_std_dev_piat'] = 0
+        else:
+            # Backward (b) direction
+            # Store the size of the first packet:
+            flow_dict['b_length'][1] = packet.length
+            # Store the packet size and number of octets:
+            flow_dict['b_pktTotalCount'] = 1
+            flow_dict['b_octetTotalCount'] = packet.length
+            # Set the min/max/avg/std_dev of packet sizes
+            # (in case there will be no more packets belonging to the flow):
+            flow_dict['b_min_ps'] = packet.length
+            flow_dict['b_max_ps'] = packet.length
+            flow_dict['b_avg_ps'] = packet.length
+            flow_dict['b_std_dev_ps'] = np.std(list(flow_dict['b_length'].values()))
+            # Store the timestamps of the packets:
+            flow_dict['b_times'][1] = packet.timestamp
+            # store the flow start/end/duration
+            flow_dict['b_flowStart'] = packet.timestamp
+            flow_dict['b_flowEnd'] = packet.timestamp
+            flow_dict['b_flowDuration'] = 0
+            # Set the min/max/avg/std_dev of packet-inter arrival times
+            # (in case there will be no more packets belonging to the flow):
+            flow_dict['b_min_piat'] = 0
+            flow_dict['b_max_piat'] = 0
+            flow_dict['b_avg_piat'] = 0
+            flow_dict['b_std_dev_piat'] = 0
 
     def packet_dir(self, packet, flow_dict):
         """
@@ -398,8 +518,15 @@ class Packet(object):
                 self.flow_hash = nethash.hash_b3((self.ip_src,
                                         self.ip_dst, self.proto))
         elif mode == 'u':
-            # TBD:
-            logger.critical("unsupported mode=%s - not written yet", mode)
+            if self.proto == 6 or self.proto == 17:
+                # Generate a directional 5-tuple flow_hash:
+                self.flow_hash = nethash.hash_u5((self.ip_src,
+                                        self.ip_dst, self.proto, self.tp_src,
+                                        self.tp_dst))
+            else:
+                # Generate a directional 3-tuple flow_hash:
+                self.flow_hash = nethash.hash_u3((self.ip_src,
+                                        self.ip_dst, self.proto))
         else:
             logger.critical("unsupported mode=%s", mode)
             sys.exit()

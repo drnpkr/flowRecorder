@@ -27,6 +27,9 @@ import http1 as pkts
 
 logger = logging.getLogger(__name__)
 
+# test packet imports:
+import http1 as pkts
+
 # Instantiate Config class:
 config = config.Config()
 
@@ -43,10 +46,7 @@ TEST_PCAP_HTTP1 = '../tests/packet_captures/http1.pcap'
 #======================== nethash.py Unit Tests ============================
 def test_hash_b5():
     """
-    Test flow counts for packet retransmissions. For flow packets
-    (i.e. TCP), all retx should be counted (if from same DPID)
-
-    For non-flow packets, the flow packet count should always be 1
+    Test bidirectional 5-tuple hashing
     """
     # Test that TCP tuples of packets in both directions on
     # a flow generate the same hash:
@@ -72,5 +72,67 @@ def test_hash_b5():
                                           packet.flow_hash, flow_hash_packet_1)
             packet_number += 1
 
+def test_hash_b3():
+    """
+    Test bidirectional 3-tuple hashing
+    """
+    # Test that TCP tuples of packets in both directions on
+    # a flow generate the same hash:
+    hash1 = nethash.hash_b3((IP_A, IP_B, TCP))
+    hash2 = nethash.hash_b3((IP_B, IP_A, TCP))
+    assert hash1 == hash2
+
+    # Test reading in a packet capture of a single flow and ensuring
+    # all packets have same b3 flow hash 
+
+    # TBD: needs a non-TCP or UDP packet capture of a flow (i.e. IPsec
+    #   or similar...
+
+def test_hash_u5():
+    """
+    Test unidirectional 5-tuple hashing
+    """
+    # Test that TCP tuples of packets in both directions on
+    # a flow generate the same hash:
+    hash1 = nethash.hash_u5((IP_A, IP_B, TCP, TP_A, TP_B))
+    hash2 = nethash.hash_u5((IP_B, IP_A, TCP, TP_B, TP_A))
+    assert hash1 != hash2
+
+    # Test reading in a packet capture of a single flow and ensuring
+    # all packets have same u5 flow hash per direction:
+    mode = 'u'
+    flow_hash_packet_1 = 0
+    packet_number = 1
+    with open(TEST_PCAP_HTTP1, 'rb') as pcap_file:
+        pcap_file_handle = dpkt.pcap.Reader(pcap_file)
+        for timestamp, pcap_packet in pcap_file_handle:
+            #*** Instantiate an instance of Packet class:
+            packet = flows_module.Packet(logger, timestamp, pcap_packet, mode)
+            if packet_number == 1:
+                flow_hash_packet_forward = packet.flow_hash
+            elif packet_number == 2:
+                flow_hash_packet_backward = packet.flow_hash
+            else:
+                if pkts.DIRECTION[packet_number - 1] == 'c2s':
+                    assert packet.flow_hash == flow_hash_packet_forward
+                else:
+                    assert packet.flow_hash == flow_hash_packet_backward
+            packet_number += 1
+
+def test_hash_u3():
+    """
+    Test unidirectional 3-tuple hashing
+    """
+    # Test that TCP tuples of packets in both directions on
+    # a flow generate the same hash:
+    hash1 = nethash.hash_u3((IP_A, IP_B, TCP))
+    hash2 = nethash.hash_u3((IP_B, IP_A, TCP))
+    assert hash1 != hash2
+
+    # Test reading in a packet capture of a single flow and ensuring
+    # all packets per direction have same u3 flow hash 
+
+    # TBD: needs a non-TCP or UDP packet capture of a flow (i.e. IPsec
+    #   or similar...
 
 

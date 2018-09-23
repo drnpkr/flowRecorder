@@ -57,11 +57,11 @@ def hash_b5(flow_5_tuple):
 def hash_b3(flow_3_tuple):
     """
     Generate a predictable bidirectional flow_hash for a TCP or UDP
-    5-tuple. the hash is the same no matter which direction the
+    3-tuple. The hash is the same no matter which direction the
     traffic is travelling for all packets that are part of that flow.
 
-    Pass this function a 5-tuple:P
-    (ip_src, ip_dst, ip_proto, tp_src, tp_dst)
+    Pass this function a 3-tuple:
+    (ip_src, ip_dst, ip_proto)
     """
     ip_A = flow_3_tuple[0]
     ip_B = flow_3_tuple[1]
@@ -81,6 +81,36 @@ def hash_b3(flow_3_tuple):
     else:
         # Transpose IPs for reverse packets:
         flow_tuple = (ip_B, ip_A, proto)
+    return hash_tuple(flow_tuple)
+
+def hash_u5(flow_5_tuple):
+    """
+    Generate a unidirectional flow_hash for a TCP or UDP
+    5-tuple.
+
+    Pass this function a 5-tuple:P
+    (ip_src, ip_dst, ip_proto, tp_src, tp_dst)
+    """
+    ip_A = flow_5_tuple[0]
+    ip_B = flow_5_tuple[1]
+    proto = int(flow_5_tuple[2])
+    tp_src = flow_5_tuple[3]
+    tp_dst = flow_5_tuple[4]
+    flow_tuple = (ip_A, ip_B, proto, tp_src, tp_dst)
+    return hash_tuple(flow_tuple)
+
+def hash_u3(flow_3_tuple):
+    """
+    Generate a unidirectional flow_hash for a TCP or UDP
+    3-tuple.
+
+    Pass this function a 3-tuple:
+    (ip_src, ip_dst, ip_proto)
+    """
+    ip_A = flow_3_tuple[0]
+    ip_B = flow_3_tuple[1]
+    proto = int(flow_3_tuple[2])
+    flow_tuple = (ip_A, ip_B, proto)
     return hash_tuple(flow_tuple)
 
 def hash_tuple(hash_tuple):
