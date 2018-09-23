@@ -124,6 +124,11 @@ class FlowRecorder(BaseClass):
             logger.critical("An input file or interface must be specified")
             sys.exit()
 
+        # Must have an output file specified:
+        if not self.output_filename:
+            logger.critical("Output filename not set")
+            sys.exit()
+
         # Instantiate Flows Class:
         self.flows = flows.Flows(self.config, self.mode)
 
@@ -144,7 +149,8 @@ class FlowRecorder(BaseClass):
                 self.flows.ingest_pcap(pcap_file_handle)
                 time2 = time.time()
                 self.logger.info("Processed in %s seconds", time2 - time1)
-        flows_result = self.flows.get_flows()
+        # Write results to file:
+        self.flows.write(self.output_filename)
         # TBD: Write to file
         time3 = time.time()
         self.logger.info("Wrote results in %s seconds", time3 - time2)

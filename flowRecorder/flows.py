@@ -27,6 +27,9 @@ from __future__ import division
 import time
 import sys
 
+# For CSV operations:
+import csv
+
 # For packet methods:
 import socket
 
@@ -89,40 +92,41 @@ class Flows(BaseClass):
             # Update the flow with packet info:
             self.flow.update(packet)
 
-    def get_flows(self):
+    def write(self, file_name):
         """
-        Returns a CSV-format list of all flows in the data set:
-            flow_id,
-            src_ip,src_port,dst_ip,dst_port,proto,
-            pktTotalCount,octetTotalCount,
-            min_ps,max_ps,avg_ps,std_dev_ps,
-            flowStart,flowEnd,flowDuration,
-            min_piat,max_piat,avg_piat,std_dev_piat
+        Write all flow records out to CSV file
         """
-        flows_result = []
-        flow_csv = ""
-        for key, flow_dict in self.flow_cache.iteritems():
-            flow_csv += str(key) + ','
-            flow_csv += str(flow_dict['src_ip']) + ','
-            flow_csv += str(flow_dict['src_port']) + ','
-            flow_csv += str(flow_dict['dst_ip']) + ','
-            flow_csv += str(flow_dict['dst_port']) + ','
-            flow_csv += str(flow_dict['proto']) + ','
-            flow_csv += str(flow_dict['pktTotalCount']) + ','
-            flow_csv += str(flow_dict['octetTotalCount']) + ','
-            flow_csv += str(flow_dict['min_ps']) + ','
-            flow_csv += str(flow_dict['max_ps']) + ','
-            flow_csv += str(flow_dict['avg_ps']) + ','
-            flow_csv += str(flow_dict['std_dev_ps']) + ','
-            flow_csv += str(flow_dict['flowStart']) + ','
-            flow_csv += str(flow_dict['flowEnd']) + ','
-            flow_csv += str(flow_dict['flowDuration']) + ','
-            flow_csv += str(flow_dict['min_piat']) + ','
-            flow_csv += str(flow_dict['max_piat']) + ','
-            flow_csv += str(flow_dict['avg_piat']) + ','
-            flow_csv += str(flow_dict['std_dev_piat'])
-            flows_result.append(flow_csv)
-        return flows_result
+        with open(file_name, mode='w') as csv_file:
+            if self.mode == 'u':
+                # Unidirectional fields:
+                fieldnames = ['src_ip', 'src_port', 'dst_ip', 'dst_port',
+                            'proto', 'pktTotalCount', 'octetTotalCount',
+                            'min_ps', 'max_ps', 'avg_ps', 'std_dev_ps',
+                            'flowStart', 'flowEnd', 'flowDuration',
+                            'min_piat', 'max_piat', 'avg_piat', 'std_dev_piat']
+            else:
+                # Bidirectional fields:
+                fieldnames = ['src_ip', 'src_port', 'dst_ip', 'dst_port',
+                            'proto', 'pktTotalCount', 'octetTotalCount',
+                            'min_ps', 'max_ps', 'avg_ps', 'std_dev_ps',
+                            'flowStart', 'flowEnd', 'flowDuration',
+                            'min_piat', 'max_piat', 'avg_piat', 'std_dev_piat',
+                            'f_pktTotalCount', 'f_octetTotalCount',
+                            'f_min_ps', 'f_max_ps', 'f_avg_ps', 'f_std_dev_ps',
+                            'f_flowStart', 'f_flowEnd', 'f_flowDuration',
+                            'f_min_piat', 'f_max_piat', 'f_avg_piat',
+                            'f_std_dev_piat',
+                            'b_pktTotalCount', 'b_octetTotalCount',
+                            'b_min_ps', 'b_max_ps', 'b_avg_ps', 'vstd_dev_ps',
+                            'b_flowStart', 'b_flowEnd', 'b_flowDuration',
+                            'b_min_piat', 'b_max_piat', 'b_avg_piat',
+                            'b_std_dev_piat'
+                            ]
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames, extrasaction='ignore')
+            writer.writeheader()
+            for flow_dict in self.flow_cache.iteritems():
+                #self.logger.debug("flow_dict=%s", flow_dict[1])
+                writer.writerow(flow_dict[1])
 
     def perf(self):
         """
