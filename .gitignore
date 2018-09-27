@@ -4,6 +4,7 @@ docs/_static
 docs/_templates
 *.pyc
 flowRecorder/*.pyc
+tests/temp/
 tests/.cache/
 tests/*.pyc
 tests/__pycache__/
