@@ -71,6 +71,13 @@ PAYLOAD = []
 #*** Packet direction, c2s (client to server) or s2c
 DIRECTION = []
 
+# Flow values:
+UNIDIR_SRC_IP = []
+UNIDIR_SRC_PORT = []
+UNIDIR_DST_IP = []
+UNIDIR_DST_PORT = []
+UNIDIR_PROTO = []
+
 #*** Packet 1 - TCP handshake packet 1
 # 10.1.0.1 10.1.0.2 TCP 74 43297 > http [SYN] Seq=0 Win=29200 Len=0 MSS=1460 SACK_PERM=1 TSval=5982511 TSecr=0 WS=64
 RAW.append(binascii.unhexlify("080027c8db910800272ad6dd08004510003c19fd400040060cab0a0100010a010002a9210050c37250d200000000a002721014330000020405b40402080a005b492f0000000001030306"))
@@ -228,4 +235,9 @@ DIRECTION.append("c2s")
 #*** Metadata for whole flow:
 FLOW_IP_CLIENT = '10.1.0.1'
 FLOW_IP_SERVER = '10.1.0.2'
-
+# Unidirectional flow values:
+UNIDIR_SRC_IP.append('10.1.0.1')
+UNIDIR_SRC_PORT.append('43297')
+UNIDIR_DST_IP.append('10.1.0.2')
+UNIDIR_DST_PORT.append('80')
+UNIDIR_PROTO.append('6')
