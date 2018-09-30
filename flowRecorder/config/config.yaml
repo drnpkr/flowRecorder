@@ -1,48 +1,50 @@
 ---
-#*** Config for flowRecorder
-#*** Written in YAML
+# Config for flowRecorder
+# Written in YAML
 #
 #========== SYSLOG ==================================
-#*** Set to 1 if want to log to syslog:
+# Set to 1 if want to log to syslog:
 syslog_enabled: 0
 #
-#*** Where to send syslog (use localhost to keep on-box):
+# Where to send syslog (use localhost to keep on-box):
 loghost: localhost
 #
-#*** Port number to send on:
+# Port number to send on:
 logport: 514
 #
-#*** Facility to use:
+# Facility to use:
 logfacility: 19
 #
-#*** Syslog Log Format:
+# Syslog Log Format:
 syslog_format: "sev=%(levelname)s module=%(module)s func=%(funcName)s %(message)s"
 #
-#*** Syslog Logging Levels Per Module
-#*** Values can be one of CRITICAL|ERROR|WARNING|INFO|DEBUG:
+# Syslog Logging Levels Per Module
+# Values can be one of CRITICAL|ERROR|WARNING|INFO|DEBUG:
 flowRecorder_logging_level_s: INFO
 config_logging_level_s: INFO
 flows_logging_level_s: INFO
 #
 #========== CONSOLE LOGGING =========================
-#*** Set to 1 if want to log to console:
+# Set to 1 if want to log to console:
 console_log_enabled: 1
 #
-#*** Set to 1 if you want colorised logs in terminal:
+# Set to 1 if you want colorised logs in terminal:
 coloredlogs_enabled: 1
 #
-#*** Console Log Format:
+# Console Log Format:
 #console_format: "%(asctime)s %(module)s[%(process)d] %(funcName)s %(levelname)s %(message)s"
 console_format: "%(asctime)s.%(msecs)03d %(name)s[%(process)d] %(funcName)s %(levelname)s %(message)s"
 #
-#*** Console Logging Levels Per Module
-#*** Values can be one of CRITICAL|ERROR|WARNING|INFO|DEBUG:
+# Console Logging Levels Per Module
+# Values can be one of CRITICAL|ERROR|WARNING|INFO|DEBUG:
 flowRecorder_logging_level_c: DEBUG
 config_logging_level_c: DEBUG
 flows_logging_level_c: DEBUG
 #
-#========== Mongodb Database ==========================
-mongo_addr: localhost
-mongo_port: 27017
-mongo_dbname: flowRecorder_data
-#
+#========== PACKET CAPTURE ==========================
+# Max size of packet to capture:
+maxlen: 65535
+# Promiscuous mode?:
+promiscuous: 1
+# Read timeout in milliseconds:
+read_timeout: 100  

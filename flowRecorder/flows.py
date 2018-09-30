@@ -92,6 +92,19 @@ class Flows(BaseClass):
             # Update the flow with packet info:
             self.flow.update(packet)
 
+    def ingest_packet(self, hdr, packet):
+        """
+        ingest a packet from pcapy into flows.
+        """
+        # Get timestamp from header:
+        sec, ms = hdr.getts()
+        timestamp = sec + ms / 1000000
+
+        # Instantiate an instance of Packet class with packet info:
+        packet = Packet(self.logger, timestamp, packet, self.mode)
+        # Update the flow with packet info:
+        self.flow.update(packet)
+
     def write(self, file_name):
         """
         Write all flow records out to CSV file
@@ -473,8 +486,13 @@ class Packet(object):
         self.tp_seq_src = 0
         self.tp_seq_dst = 0
 
-        # Read packet into dpkt to parse headers:
-        eth = dpkt.ethernet.Ethernet(packet)
+        try:
+            # Read packet into dpkt to parse headers:
+            eth = dpkt.ethernet.Ethernet(packet)
+        except:
+            # Skip Packet if unable to parse:
+            self.logger.error("failed to unpack packet, skipping...")
+            return
 
         # Ignore if non-IP packet:
         if not (isinstance(eth.data, dpkt.ip.IP) or isinstance(eth.data, dpkt.ip6.IP6)):
@@ -508,7 +526,7 @@ class Packet(object):
             self.tp_seq_src = 0
             self.tp_seq_dst = 0
         else:
-            # Not a transport layer that we understand:
+            # Not a transport layer that we understand, keep going:
             pass
 
         if mode == 'b':

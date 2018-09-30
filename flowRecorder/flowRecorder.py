@@ -31,6 +31,9 @@ import logging
 # Colorise the logs:
 import coloredlogs
 
+# For live packet capture:
+import pcapy
+
 # Import dpkt for packet parsing:
 import dpkt
 
@@ -139,25 +142,60 @@ class FlowRecorder(BaseClass):
         self.logger.info("Starting flowRecorder")
         time0 = time.time()
         if self.input_filename:
-            self.logger.info("Opening PCAP file=%s", self.input_filename)
-            # Open the PCAP file:
-            with open(self.input_filename, 'rb') as pcap_file:
-                pcap_file_handle = dpkt.pcap.Reader(pcap_file)
-                time1 = time.time()
-                self.logger.info("Opened PCAP in %s seconds", time1 - time0)
-                # Process PCAP packets into flows:
-                self.flows.ingest_pcap(pcap_file_handle)
-                time2 = time.time()
-                self.logger.info("Processed in %s seconds", time2 - time1)
+            # File Mode
+            self._run_file(time0)
+        else:
+            # Live Packet Capture Mode
+            self._run_live()
         # Write results to file:
-        self.flows.write(self.output_filename)
-        # TBD: Write to file
         time3 = time.time()
-        self.logger.info("Wrote results in %s seconds", time3 - time2)
+        self.flows.write(self.output_filename)
+        time4 = time.time()
+        self.logger.info("Wrote results in %s seconds", time4 - time3)
         self.flows.perf()
         self.flows.stats()
-        time4 = time.time()
-        self.logger.info("Finished, total time %s seconds", time4 - time0)
+        time5 = time.time()
+        self.logger.info("Finished, total time %s seconds", time5 - time0)
+
+    def _run_file(self, time0):
+        """
+        Read in packet capture file
+        """
+        self.logger.info("Opening PCAP file=%s", self.input_filename)
+        # Open the PCAP file:
+        with open(self.input_filename, 'rb') as pcap_file:
+            pcap_file_handle = dpkt.pcap.Reader(pcap_file)
+            time1 = time.time()
+            self.logger.info("Opened PCAP in %s seconds", time1 - time0)
+            # Process PCAP packets into flows:
+            self.flows.ingest_pcap(pcap_file_handle)
+            time2 = time.time()
+            self.logger.info("Processed in %s seconds", time2 - time1)
+
+    def _run_live(self):
+        """
+        Run live packet capture
+        """
+        self.logger.info("Running live packet capture")
+        # Retrieve parameters from config:
+        maxlen = self.config.get_value("maxlen")
+        promiscuous = self.config.get_value("promiscuous")
+        read_timeout = self.config.get_value("read_timeout")
+        # Instantiate sniffer:
+        sniffer = pcapy.open_live(self.interface, maxlen, promiscuous, read_timeout)
+        # Start sniffing:
+        sniffing = True
+        while sniffing:
+            self.logger.info("Start sniffing on interface %s", self.interface)
+            self.logger.info("Sniffing can be aborted via pressing Ctrl-c")
+            try:
+                #sniffer.loop(0, self.flows.ingest_packet)
+                (header, packet) = sniffer.next()
+                self.logger.debug("captured a packet...")
+                self.flows.ingest_packet(header, packet)
+            except (KeyboardInterrupt, SystemExit):
+                self.logger.info("SIGINT (Ctrl-c) detected.")
+                sniffing = False
 
 def print_help():
     """
