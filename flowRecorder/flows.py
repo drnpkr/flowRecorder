@@ -248,7 +248,7 @@ class Flow(object):
         # at last update the min/max/avg/std_dev of packet-inter-arrival-times
         flow_dict['min_piat'] = min(flow_dict['iats'].values())
         flow_dict['max_piat'] = max(flow_dict['iats'].values())
-        flow_dict['avg_piat'] = sum(flow_dict['iats'].values()) / flow_dict['pktTotalCount']
+        flow_dict['avg_piat'] = sum(flow_dict['iats'].values()) / (flow_dict['pktTotalCount'] - 1)
         flow_dict['std_dev_piat'] = np.std(list(flow_dict['iats'].values()))
 
     def _update_found_bidir(self, packet):

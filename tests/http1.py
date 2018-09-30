@@ -40,6 +40,9 @@ Packet capture file is 'http1.pcap'
 
 import binascii
 
+name = 'http1.py'
+capture_file = 'http1.pcap'
+
 #======================== IPv4 + TCP + HTTP port 80 flow ======================
 #*** Raw packet data:
 RAW = []
@@ -248,6 +251,7 @@ DIRECTION.append("c2s")
 #*** Metadata for whole flow:
 FLOW_IP_CLIENT = '10.1.0.1'
 FLOW_IP_SERVER = '10.1.0.2'
+
 # Unidirectional flow values:
 # Flow 1:
 UNIDIR_SRC_IP.append('10.1.0.1')
@@ -264,6 +268,10 @@ UNIDIR_STD_DEV_PS.append('3.418698583')
 UNIDIR_FLOWSTART.append('1458782847.829442')
 UNIDIR_FLOWEND.append('1458782852.091702')
 UNIDIR_FLOWDURATION.append('4.262260')
+UNIDIR_MIN_PIAT.append('0.000980')
+UNIDIR_MAX_PIAT.append('4.260270')
+UNIDIR_AVG_PIAT.append('1.420753')
+UNIDIR_STD_DEV_PIAT.append('2.007841')
 # Flow 2:
 UNIDIR_SRC_IP.append('10.1.0.2')
 UNIDIR_SRC_PORT.append('80')
@@ -279,11 +287,14 @@ UNIDIR_STD_DEV_PS.append('43.49201715')
 UNIDIR_FLOWSTART.append('1458782847.830399')
 UNIDIR_FLOWEND.append('1458782852.091692')
 UNIDIR_FLOWDURATION.append('4.261300')
+UNIDIR_MIN_PIAT.append('0.000149965')
+UNIDIR_MAX_PIAT.append('4.261150')
+UNIDIR_AVG_PIAT.append('2.130650')
+UNIDIR_STD_DEV_PIAT.append('2.130500078')
 
-#UNIDIR_MIN_PIAT = []
-#UNIDIR_MAX_PIAT = []
-#UNIDIR_AVG_PIAT = []
-#UNIDIR_STD_DEV_PIAT = []
+
+
+
 
 
 

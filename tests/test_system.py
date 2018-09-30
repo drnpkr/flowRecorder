@@ -34,7 +34,7 @@ RESULT_FILE = 'temp/temp_test_output.csv'
 UNIDIR = 'u'
 BIDIR = 'b'
 # MARGIN is used to allow for small differences in results due to 
-# use of float type, rounding etc:
+# use of float type, rounding etc. Applies on both sides of result:
 MARGIN = 0.0001
 
 #======================== data.py Unit Tests ============================
@@ -74,6 +74,7 @@ def validate_results_file_unidir(filename, ground_truth, results_length):
     Validate a unidirectional results file against ground truth values from
     a separate ground truth object
     """
+    logger.debug("Validating unidir results filename=%s against %s", filename, ground_truth.name)
     # Read in results file:
     with open(filename) as csv_file:
         csv_reader = list(csv.DictReader(csv_file))
@@ -82,6 +83,7 @@ def validate_results_file_unidir(filename, ground_truth, results_length):
         row_number = 0
         # Iterate through rows of result data, checking values:
         for row in csv_reader:
+            logger.debug("Validating row=%s", row_number)
             assert row['src_ip'] == ground_truth.UNIDIR_SRC_IP[row_number]
             assert row['src_port'] == ground_truth.UNIDIR_SRC_PORT[row_number]
             assert row['dst_ip'] == ground_truth.UNIDIR_DST_IP[row_number]
@@ -100,4 +102,13 @@ def validate_results_file_unidir(filename, ground_truth, results_length):
             # Flow Duration needs leeway to cope with floats/division/rounding etc:
             assert float(row['flowDuration']) < float(ground_truth.UNIDIR_FLOWDURATION[row_number]) + MARGIN
             assert float(row['flowDuration']) > float(ground_truth.UNIDIR_FLOWDURATION[row_number]) - MARGIN
+            # Inter-packet arrival times need leeway to cope with floats/division/rounding etc:
+            assert float(row['min_piat']) < float(ground_truth.UNIDIR_MIN_PIAT[row_number]) + MARGIN
+            assert float(row['min_piat']) > float(ground_truth.UNIDIR_MIN_PIAT[row_number]) - MARGIN
+            assert float(row['max_piat']) < float(ground_truth.UNIDIR_MAX_PIAT[row_number]) + MARGIN
+            assert float(row['max_piat']) > float(ground_truth.UNIDIR_MAX_PIAT[row_number]) - MARGIN
+            assert float(row['avg_piat']) < float(ground_truth.UNIDIR_AVG_PIAT[row_number]) + MARGIN
+            assert float(row['avg_piat']) > float(ground_truth.UNIDIR_AVG_PIAT[row_number]) - MARGIN
+            assert float(row['std_dev_piat']) < float(ground_truth.UNIDIR_STD_DEV_PIAT[row_number]) + MARGIN
+            assert float(row['std_dev_piat']) > float(ground_truth.UNIDIR_STD_DEV_PIAT[row_number]) - MARGIN
             row_number += 1
