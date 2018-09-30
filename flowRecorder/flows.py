@@ -117,7 +117,7 @@ class Flows(BaseClass):
                             'f_min_piat', 'f_max_piat', 'f_avg_piat',
                             'f_std_dev_piat',
                             'b_pktTotalCount', 'b_octetTotalCount',
-                            'b_min_ps', 'b_max_ps', 'b_avg_ps', 'vstd_dev_ps',
+                            'b_min_ps', 'b_max_ps', 'b_avg_ps', 'b_std_dev_ps',
                             'b_flowStart', 'b_flowEnd', 'b_flowDuration',
                             'b_min_piat', 'b_max_piat', 'b_avg_piat',
                             'b_std_dev_piat'
@@ -287,7 +287,7 @@ class Flow(object):
             # at last update the min/max/avg/std_dev of packet-inter-arrival-times
             flow_dict['f_min_piat'] = min(flow_dict['f_iats'].values())
             flow_dict['f_max_piat'] = max(flow_dict['f_iats'].values())
-            flow_dict['f_avg_piat'] = sum(flow_dict['f_iats'].values()) / flow_dict['f_pktTotalCount']
+            flow_dict['f_avg_piat'] = sum(flow_dict['f_iats'].values()) / (flow_dict['f_pktTotalCount'] - 1)
             flow_dict['f_std_dev_piat'] = np.std(list(flow_dict['f_iats'].values()))
         else:
             # Backward (b) direction
@@ -318,7 +318,7 @@ class Flow(object):
                 # Update the min/max/avg/std_dev of packet-inter-arrival-times:
                 flow_dict['b_min_piat'] = min(flow_dict['b_iats'].values())
                 flow_dict['b_max_piat'] = max(flow_dict['b_iats'].values())
-                flow_dict['b_avg_piat'] = sum(flow_dict['b_iats'].values()) / flow_dict['b_pktTotalCount']
+                flow_dict['b_avg_piat'] = sum(flow_dict['b_iats'].values()) / (flow_dict['b_pktTotalCount'] - 1)
                 flow_dict['b_std_dev_piat'] = np.std(list(flow_dict['b_iats'].values()))
             # Update the flow end/duration (the start does not change):
             flow_dict['b_flowEnd'] = packet.timestamp
