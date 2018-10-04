@@ -17,11 +17,6 @@ Packets with metadata to use in testing of flowRecorder
 This flow is IPv4 + TCP + HTTP with a GET returning a "HTTP/1.1
 400 Bad Request"
 
-    Note: no testing of max_interpacket_interval and
-    min_interpacket_interval as they become imprecise due
-    to floating point and when tried using decimal module
-    found that would not serialise into Pymongo db.
-
     To create test packet data, capture packet in Wireshark and:
 
       For the packet summary:

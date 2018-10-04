@@ -35,6 +35,7 @@ import socket
 
 # For flows dictionary:
 from collections import defaultdict
+from collections import OrderedDict
 
 # For math operations:
 import numpy as np
@@ -73,7 +74,8 @@ class Flows(BaseClass):
                                        "flows_logging_level_c")
         self.mode = mode
         # Python dictionary to hold flows:
-        self.flow_cache = defaultdict(dict)
+        #self.flow_cache = defaultdict(dict)
+        self.flow_cache = OrderedDict()
 
         # Create a Flow object for flow operations:
         self.flow = Flow(self.logger, self.flow_cache, mode)
