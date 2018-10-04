@@ -136,9 +136,10 @@ class Flows(BaseClass):
                             'b_std_dev_piat'
                             ]
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames, extrasaction='ignore')
+            # Write header:
             writer.writeheader()
-            for flow_dict in self.flow_cache.iteritems():
-                #self.logger.debug("flow_dict=%s", flow_dict[1])
+            # Iterate through writing rows:
+            for flow_dict in self.flow_cache.items():
                 writer.writerow(flow_dict[1])
 
     def perf(self):

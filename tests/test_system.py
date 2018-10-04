@@ -55,7 +55,7 @@ def test_http1_unidir():
                         "-d", UNIDIR,
                         "-o", RESULT_FILE])
         logger.info("flowRecorder result is %s", result)
-    except subprocess.CalledProcessError, e:
+    except subprocess.CalledProcessError as e:
         logger.critical("Stdout output: %s", e.output)
 
     # Check results file exists:
@@ -80,7 +80,7 @@ def test_http1_bidir():
                         "-d", BIDIR,
                         "-o", RESULT_FILE])
         logger.info("flowRecorder result is %s", result)
-    except subprocess.CalledProcessError, e:
+    except subprocess.CalledProcessError as e:
         logger.critical("Stdout output: %s", e.output)
 
     # Check results file exists:

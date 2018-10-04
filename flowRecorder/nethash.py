@@ -120,5 +120,5 @@ def hash_tuple(hash_tuple):
     """
     hash_result = hashlib.md5()
     tuple_as_string = str(hash_tuple)
-    hash_result.update(tuple_as_string)
+    hash_result.update(tuple_as_string.encode('utf-8'))
     return hash_result.hexdigest()
