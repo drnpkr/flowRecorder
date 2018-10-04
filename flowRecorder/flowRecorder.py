@@ -189,10 +189,7 @@ class FlowRecorder(BaseClass):
             self.logger.info("Start sniffing on interface %s", self.interface)
             self.logger.info("Sniffing can be aborted via pressing Ctrl-c")
             try:
-                #sniffer.loop(0, self.flows.ingest_packet)
-                (header, packet) = sniffer.next()
-                self.logger.debug("captured a packet...")
-                self.flows.ingest_packet(header, packet)
+                sniffer.loop(0, self.flows.ingest_packet)
             except (KeyboardInterrupt, SystemExit):
                 self.logger.info("SIGINT (Ctrl-c) detected.")
                 sniffing = False
