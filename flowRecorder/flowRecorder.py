@@ -167,8 +167,11 @@ class FlowRecorder(BaseClass):
             pcap_file_handle = dpkt.pcap.Reader(pcap_file)
             time1 = time.time()
             self.logger.info("Opened PCAP in %s seconds", time1 - time0)
-            # Process PCAP packets into flows:
-            self.flows.ingest_pcap(pcap_file_handle)
+            try:
+                # Process PCAP packets into flows:
+                self.flows.ingest_pcap(pcap_file_handle)
+            except (KeyboardInterrupt, SystemExit):
+                self.logger.info("SIGINT (Ctrl-c) detected.")
             time2 = time.time()
             self.logger.info("Processed in %s seconds", time2 - time1)
 
