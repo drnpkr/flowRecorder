@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-
+import time
 """
 Use DPKT to read in a pcap file, organise packets into flows, and print out the flow records
 """
@@ -899,18 +899,24 @@ if __name__ == '__main__':
         if file_in is None:
             pass
         else:
+            time0 = time.time()
             with open(file_in, 'rb') as file:
                 pcap = dpkt.pcap.Reader(file)
-
+                time1 = time.time()
+                print("Open file time is", time1 - time0)
                 print("Start processing the packets in the PCAP file.")
                 print("Parsing can be aborted via pressing Ctrl-c.")
 
                 # process packets
                 f_cache, packet_details = process_packets(pcap, direction,file_out)
+                time2 = time.time()
+                print("Process packets time is", time2 - time1)
 
             df = convert_f_cache_to_dataframe(f_cache)
             # show_flow_cache(df)
             save_flow_cache(df, file_out)
+            time3 = time.time()
+            print("Total elapsed time is", time3 - time0)
 
             # show_calculation_details('03ebfd4bf44b3ec00980a5d96bf9833e', 'bi_length', packet_details)
             # show_calculation_details('03ebfd4bf44b3ec00980a5d96bf9833e', 'f_length', packet_details)
