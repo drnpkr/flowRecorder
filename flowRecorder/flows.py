@@ -397,6 +397,17 @@ class Flow(object):
         flow_dict['b_iats'] = {}
         flow_dict['b_pktTotalCount'] = 0
         flow_dict['b_octetTotalCount'] = 0
+        flow_dict['b_min_ps'] = 0
+        flow_dict['b_max_ps'] = 0
+        flow_dict['b_avg_ps'] = 0
+        flow_dict['b_std_dev_ps'] = 0
+        flow_dict['b_flowStart'] = 0
+        flow_dict['b_flowEnd'] = 0
+        flow_dict['b_flowDuration'] = 0
+        flow_dict['b_min_piat'] = 0
+        flow_dict['b_max_piat'] = 0
+        flow_dict['b_avg_piat'] = 0
+        flow_dict['b_std_dev_piat'] = 0
         # Determine packet direction (f=forward, r=reverse):
         direction = self.packet_dir(packet, flow_dict)
         # Update keys dependant on the direction (f or b):

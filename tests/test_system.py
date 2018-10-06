@@ -19,6 +19,7 @@ import config
 # test packet imports:
 import http1 as groundtruth_http1
 import groundtruth_PING1
+import groundtruth_tcp_syn_only
 
 sys.path.insert(0, '../flowRecorder')
 
@@ -29,9 +30,12 @@ config = config.Config()
 
 logger = logging.getLogger(__name__)
 
+PYTHON2 = 'python2'
+PYTHON3 = 'python3'
 FLOWRECORDER = "../flowRecorder/flowRecorder.py"
 TEST_PCAP_HTTP1 = 'packet_captures/http1.pcap'
 TEST_PCAP_PING1 = 'packet_captures/PING1.pcap'
+TEST_PCAP_TCP_SYN_ONLY = 'packet_captures/tcp_syn_only.pcap'
 RESULT_FILE = 'temp/temp_test_output.csv'
 UNIDIR = 'u'
 BIDIR = 'b'
@@ -45,101 +49,157 @@ def test_http1_unidir():
     """
     Test output for unidirectional processing of http1.pcap file
     """
-    # System call to remove old result file if exists:
-    if os.path.isfile(RESULT_FILE): 
-        logger.info("deleting RESULT_FILE=%s", RESULT_FILE)
-        os.remove(RESULT_FILE)
+    for python_ver in (PYTHON2, PYTHON3):
+        # System call to remove old result file if exists:
+        if os.path.isfile(RESULT_FILE): 
+            logger.info("deleting RESULT_FILE=%s", RESULT_FILE)
+            os.remove(RESULT_FILE)
 
-    # Run flowRecorder to generate output file:
-    try:
-        result = subprocess.check_output(["python", FLOWRECORDER,
-                        "-f" , TEST_PCAP_HTTP1,
-                        "-d", UNIDIR,
-                        "-o", RESULT_FILE])
-        logger.info("flowRecorder result is %s", result)
-    except subprocess.CalledProcessError as e:
-        logger.critical("Stdout output: %s", e.output)
+        # Run flowRecorder to generate output file:
+        try:
+            result = subprocess.check_output([python_ver, FLOWRECORDER,
+                            "-f" , TEST_PCAP_HTTP1,
+                            "-d", UNIDIR,
+                            "-o", RESULT_FILE])
+            logger.info("flowRecorder result is %s", result)
+        except subprocess.CalledProcessError as e:
+            logger.critical("Stdout output: %s", e.output)
 
-    # Check results file exists:
-    assert os.path.isfile(RESULT_FILE)
+        # Check results file exists:
+        assert os.path.isfile(RESULT_FILE)
 
-    # Call helper function to validate the results file values:
-    validate_results_file_unidir(RESULT_FILE, groundtruth_http1, 2)
+        # Call helper function to validate the results file values:
+        validate_results_file_unidir(RESULT_FILE, groundtruth_http1, 2)
 
 def test_http1_bidir():
     """
     Test output for bidirectional processing of http1.pcap file
     """
-    # System call to remove old result file if exists:
-    if os.path.isfile(RESULT_FILE): 
-        logger.info("deleting RESULT_FILE=%s", RESULT_FILE)
-        os.remove(RESULT_FILE)
+    for python_ver in (PYTHON2, PYTHON3):
+        # System call to remove old result file if exists:
+        if os.path.isfile(RESULT_FILE): 
+            logger.info("deleting RESULT_FILE=%s", RESULT_FILE)
+            os.remove(RESULT_FILE)
 
-    # Run flowRecorder to generate output file:
-    try:
-        result = subprocess.check_output(["python", FLOWRECORDER,
-                        "-f" , TEST_PCAP_HTTP1,
-                        "-d", BIDIR,
-                        "-o", RESULT_FILE])
-        logger.info("flowRecorder result is %s", result)
-    except subprocess.CalledProcessError as e:
-        logger.critical("Stdout output: %s", e.output)
+        # Run flowRecorder to generate output file:
+        try:
+            result = subprocess.check_output([python_ver, FLOWRECORDER,
+                            "-f" , TEST_PCAP_HTTP1,
+                            "-d", BIDIR,
+                            "-o", RESULT_FILE])
+            logger.info("flowRecorder result is %s", result)
+        except subprocess.CalledProcessError as e:
+            logger.critical("Stdout output: %s", e.output)
 
-    # Check results file exists:
-    assert os.path.isfile(RESULT_FILE)
+        # Check results file exists:
+        assert os.path.isfile(RESULT_FILE)
 
-    # Call helper function to validate the results file values:
-    validate_results_file_bidir(RESULT_FILE, groundtruth_http1, 1)
+        # Call helper function to validate the results file values:
+        validate_results_file_bidir(RESULT_FILE, groundtruth_http1, 1)
 
 def test_PING1_unidir():
     """
     Test output for unidirectional processing of PING1.pcap file
     """
-    # System call to remove old result file if exists:
-    if os.path.isfile(RESULT_FILE): 
-        logger.info("deleting RESULT_FILE=%s", RESULT_FILE)
-        os.remove(RESULT_FILE)
+    for python_ver in (PYTHON2, PYTHON3):
+        # System call to remove old result file if exists:
+        if os.path.isfile(RESULT_FILE): 
+            logger.info("deleting RESULT_FILE=%s", RESULT_FILE)
+            os.remove(RESULT_FILE)
 
-    # Run flowRecorder to generate output file:
-    try:
-        result = subprocess.check_output(["python", FLOWRECORDER,
-                        "-f" , TEST_PCAP_PING1,
-                        "-d", UNIDIR,
-                        "-o", RESULT_FILE])
-        logger.info("flowRecorder result is %s", result)
-    except subprocess.CalledProcessError as e:
-        logger.critical("Stdout output: %s", e.output)
+        # Run flowRecorder to generate output file:
+        try:
+            result = subprocess.check_output([python_ver, FLOWRECORDER,
+                            "-f" , TEST_PCAP_PING1,
+                            "-d", UNIDIR,
+                            "-o", RESULT_FILE])
+            logger.info("flowRecorder result is %s", result)
+        except subprocess.CalledProcessError as e:
+            logger.critical("Stdout output: %s", e.output)
 
-    # Check results file exists:
-    assert os.path.isfile(RESULT_FILE)
+        # Check results file exists:
+        assert os.path.isfile(RESULT_FILE)
 
-    # Call helper function to validate the results file values:
-    validate_results_file_unidir(RESULT_FILE, groundtruth_PING1, 2)
+        # Call helper function to validate the results file values:
+        validate_results_file_unidir(RESULT_FILE, groundtruth_PING1, 2)
 
 def test_PING1_bidir():
     """
     Test output for bidirectional processing of PING1.pcap file
     """
-    # System call to remove old result file if exists:
-    if os.path.isfile(RESULT_FILE): 
-        logger.info("deleting RESULT_FILE=%s", RESULT_FILE)
-        os.remove(RESULT_FILE)
+    for python_ver in (PYTHON2, PYTHON3):
+        # System call to remove old result file if exists:
+        if os.path.isfile(RESULT_FILE): 
+            logger.info("deleting RESULT_FILE=%s", RESULT_FILE)
+            os.remove(RESULT_FILE)
 
-    # Run flowRecorder to generate output file:
-    try:
-        result = subprocess.check_output(["python", FLOWRECORDER,
-                        "-f" , TEST_PCAP_PING1,
-                        "-d", BIDIR,
-                        "-o", RESULT_FILE])
-        logger.info("flowRecorder result is %s", result)
-    except subprocess.CalledProcessError as e:
-        logger.critical("Stdout output: %s", e.output)
+        # Run flowRecorder to generate output file:
+        try:
+            result = subprocess.check_output([python_ver, FLOWRECORDER,
+                            "-f" , TEST_PCAP_PING1,
+                            "-d", BIDIR,
+                            "-o", RESULT_FILE])
+            logger.info("flowRecorder result is %s", result)
+        except subprocess.CalledProcessError as e:
+            logger.critical("Stdout output: %s", e.output)
 
-    # Check results file exists:
-    assert os.path.isfile(RESULT_FILE)
+        # Check results file exists:
+        assert os.path.isfile(RESULT_FILE)
 
-    # Call helper function to validate the results file values:
-    validate_results_file_bidir(RESULT_FILE, groundtruth_PING1, 1)
+        # Call helper function to validate the results file values:
+        validate_results_file_bidir(RESULT_FILE, groundtruth_PING1, 1)
+
+def test_tcp_syn_only_unidir():
+    """
+    Test output for unidirectional processing of tcp_syn_only.pcap file
+    """
+    for python_ver in (PYTHON2, PYTHON3):
+        # System call to remove old result file if exists:
+        if os.path.isfile(RESULT_FILE): 
+            logger.info("deleting RESULT_FILE=%s", RESULT_FILE)
+            os.remove(RESULT_FILE)
+
+        # Run flowRecorder to generate output file:
+        try:
+            result = subprocess.check_output([python_ver, FLOWRECORDER,
+                            "-f" , TEST_PCAP_TCP_SYN_ONLY,
+                            "-d", UNIDIR,
+                            "-o", RESULT_FILE])
+            logger.info("flowRecorder result is %s", result)
+        except subprocess.CalledProcessError as e:
+            logger.critical("Stdout output: %s", e.output)
+
+        # Check results file exists:
+        assert os.path.isfile(RESULT_FILE)
+
+        # Call helper function to validate the results file values:
+        validate_results_file_unidir(RESULT_FILE, groundtruth_tcp_syn_only, 1)
+
+def test_tcp_syn_only_bidir():
+    """
+    Test output for bidirectional processing of tcp_syn_only.pcap file
+    """
+    for python_ver in (PYTHON2, PYTHON3):
+        # System call to remove old result file if exists:
+        if os.path.isfile(RESULT_FILE): 
+            logger.info("deleting RESULT_FILE=%s", RESULT_FILE)
+            os.remove(RESULT_FILE)
+
+        # Run flowRecorder to generate output file:
+        try:
+            result = subprocess.check_output([python_ver, FLOWRECORDER,
+                            "-f" , TEST_PCAP_TCP_SYN_ONLY,
+                            "-d", BIDIR,
+                            "-o", RESULT_FILE])
+            logger.info("flowRecorder result is %s", result)
+        except subprocess.CalledProcessError as e:
+            logger.critical("Stdout output: %s", e.output)
+
+        # Check results file exists:
+        assert os.path.isfile(RESULT_FILE)
+
+        # Call helper function to validate the results file values:
+        validate_results_file_bidir(RESULT_FILE, groundtruth_tcp_syn_only, 1)
 
 #================= HELPER FUNCTIONS ===========================================
 
