@@ -268,13 +268,13 @@ class Flow(object):
         flow_dict['max_ps'] = max(flow_dict['length'].values())
         flow_dict['avg_ps'] = flow_dict['octetTotalCount'] / flow_dict['pktTotalCount']
         flow_dict['std_dev_ps'] = np.std(list(flow_dict['length'].values()))
-        # Store the timestamps of the newly captured packets:
-        flow_dict['times'][flow_dict['pktTotalCount']] = packet.timestamp
+        # Store the timestamps of the newly captured packet:
+        flow_dict['times'].append(packet.timestamp)
         # As we have now at least 2 packets in the flow, we can calculate the packet-inter-arrival-time.
         # We decrement the packet counter every single time, otherwise it would start from 2
         # The first piat will be the current timestamp minus the timestamp of the previous packet:
-        flow_dict['iats'].append(flow_dict['times'][flow_dict['pktTotalCount']] \
-            - flow_dict['times'][flow_dict['pktTotalCount']-1])
+        flow_dict['iats'].append(flow_dict['times'][-1] \
+            - flow_dict['times'][-2])
         # Update the flow end/duration (the start does not change)
         flow_dict['flowEnd'] = packet.timestamp
         flow_dict['flowDuration'] = (packet.timestamp - flow_dict['flowStart'])
@@ -385,8 +385,8 @@ class Flow(object):
         flow_dict['avg_ps'] = packet.length
         flow_dict['std_dev_ps'] = np.std(list(flow_dict['length'].values()))
         # Store the timestamps of the packets:
-        flow_dict['times'] = {}
-        flow_dict['times'][1] = packet.timestamp
+        flow_dict['times'] = []
+        flow_dict['times'].append(packet.timestamp)
         flow_dict['iats'] = []
         # store the flow start/end/duration
         flow_dict['flowStart'] = packet.timestamp
@@ -487,20 +487,32 @@ class Flow(object):
         False = flow has expired, i.e. PIAT from previous packet
         in flow is greater than flow expiration threshold
         """
+        # TEMP:
+        self.logger.info("Checking flow expiration, threshold=%s", self.flow_expiration)
         if len(flow_dict['iats']):
-            if ((packet.timestamp - flow_dict['iats'][-1]) > self.flow_expiration):
+            if ((packet.timestamp - flow_dict['times'][-1]) > self.flow_expiration):
                 # Flow has expired:
+                # TEMP:
+                self.logger.info("Flow has expired, piats=%s", packet.timestamp - flow_dict['times'][-1])
+                self.logger.info("packet.timestamp=%s", packet.timestamp)
+                self.logger.info("flow_dict['times'][-1]=%s", flow_dict['times'][-1])
                 return False
             else:
                 # Flow has not expired:
+                # TEMP:
+                self.logger.info("Flow has NOT expired")
                 return True
         elif flow_dict['pktTotalCount'] == 1:
             # Was only 1 packet so no PIAT so use packet timestamp
             if ((packet.timestamp - flow_dict['flowStart']) > self.flow_expiration):
                 # Flow has expired:
+                # TEMP:
+                self.logger.info("Flow has expired (1 pkt), piats=%s", packet.timestamp - flow_dict['flowStart'])
                 return False
             else:
                 # Flow has not expired:
+                # TEMP:
+                self.logger.info("Flow has NOT expired")
                 return True
         else:
             # No packets???
