@@ -34,7 +34,6 @@ import csv
 import socket
 
 # For flows dictionary:
-from collections import defaultdict
 from collections import OrderedDict
 
 # For math operations:
@@ -72,13 +71,14 @@ class Flows(BaseClass):
         # Set up Logging with inherited base class method:
         self.configure_logging(__name__, "flows_logging_level_s",
                                        "flows_logging_level_c")
+        # Mode is u for unidirectional or b for bidirectional:
         self.mode = mode
-        # Python dictionary to hold flows:
-        #self.flow_cache = defaultdict(dict)
+        # Python dictionaries to hold current and archived flow records:
         self.flow_cache = OrderedDict()
+        self.flow_archive = OrderedDict()
 
         # Create a Flow object for flow operations:
-        self.flow = Flow(self.logger, self.flow_cache, mode)
+        self.flow = Flow(config, self.logger, self.flow_cache, self.flow_archive, mode)
 
     def ingest_pcap(self, dpkt_reader):
         """
@@ -140,7 +140,10 @@ class Flows(BaseClass):
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames, extrasaction='ignore')
             # Write header:
             writer.writeheader()
-            # Iterate through writing rows:
+            # Write archive flows as rows:
+            for flow_dict in self.flow_archive.items():
+                writer.writerow(flow_dict[1])
+            # Write current flows as rows:
             for flow_dict in self.flow_cache.items():
                 writer.writerow(flow_dict[1])
 
@@ -187,7 +190,7 @@ class Flow(object):
     Designed to be instantiated once by the Flows class
     and set to different flow context by packet object
     """
-    def __init__(self, logger, flow_cache, mode):
+    def __init__(self, config, logger, flow_cache, flow_archive, mode):
         """
         Initialise with references to logger and flow_cache dictionary
         and mode of operation.
@@ -198,12 +201,15 @@ class Flow(object):
         """
         self.logger = logger
         self.flow_cache = flow_cache
+        self.flow_archive = flow_archive
         self.mode = mode
         # Instantiate classes for recording perf timing stats:
         self.stats_lookup_found = Statistics()
         self.stats_lookup_notfound = Statistics()
         self.stats_update_existing = Statistics()
         self.stats_write_new = Statistics()
+        # Get value from config:
+        self.flow_expiration = config.get_value("flow_expiration")
         self.logger.debug("Flow object instantiated in mode=%s", mode)
 
     def update(self, packet):
@@ -215,9 +221,21 @@ class Flow(object):
             # Found existing flow in dict, update it:
             time1 = time.time()
             self.stats_lookup_found.push(time1 - time0)
-            self._update_found(packet)
-            if self.mode == 'b':
-                self._update_found_bidir(packet)
+            if self._is_current_flow(packet, self.flow_cache[packet.flow_hash]):
+                # Update standard flow parameters:
+                self._update_found(packet)
+                if self.mode == 'b':
+                    # Also update bidirectional flow parameters:
+                    self._update_found_bidir(packet)
+            else:
+                # Expired flow so archive it:
+                self._archive_flow(packet)
+                # Delete from dict:
+                self.flow_cache.pop(packet.flow_hash, None)
+                # Now create as a new flow based on current packet:
+                self._create_new(packet)
+                if self.mode == 'b':
+                    self._create_new_bidir(packet)
             # Update time stats:
             time2 = time.time()
             self.stats_update_existing.push(time2 - time1)
@@ -255,22 +273,21 @@ class Flow(object):
         # As we have now at least 2 packets in the flow, we can calculate the packet-inter-arrival-time.
         # We decrement the packet counter every single time, otherwise it would start from 2
         # The first piat will be the current timestamp minus the timestamp of the previous packet:
-        flow_dict['iats'][flow_dict['pktTotalCount']-1] = \
-            flow_dict['times'][flow_dict['pktTotalCount']] \
-            - flow_dict['times'][flow_dict['pktTotalCount']-1]
+        flow_dict['iats'].append(flow_dict['times'][flow_dict['pktTotalCount']] \
+            - flow_dict['times'][flow_dict['pktTotalCount']-1])
         # Update the flow end/duration (the start does not change)
         flow_dict['flowEnd'] = packet.timestamp
         flow_dict['flowDuration'] = (packet.timestamp - flow_dict['flowStart'])
         # at last update the min/max/avg/std_dev of packet-inter-arrival-times
-        flow_dict['min_piat'] = min(flow_dict['iats'].values())
-        flow_dict['max_piat'] = max(flow_dict['iats'].values())
-        flow_dict['avg_piat'] = sum(flow_dict['iats'].values()) / (flow_dict['pktTotalCount'] - 1)
-        flow_dict['std_dev_piat'] = np.std(list(flow_dict['iats'].values()))
+        flow_dict['min_piat'] = min(flow_dict['iats'])
+        flow_dict['max_piat'] = max(flow_dict['iats'])
+        flow_dict['avg_piat'] = sum(flow_dict['iats']) / (flow_dict['pktTotalCount'] - 1)
+        flow_dict['std_dev_piat'] = np.std(flow_dict['iats'])
 
     def _update_found_bidir(self, packet):
         """
         Update existing flow in flow_cache dictionary with
-        bidirectional parameters (in addition to standard parameters)
+        bidirectional parameters (separately to standard parameters)
         """
         flow_hash = packet.flow_hash
         flow_dict = self.flow_cache[flow_hash]
@@ -370,7 +387,7 @@ class Flow(object):
         # Store the timestamps of the packets:
         flow_dict['times'] = {}
         flow_dict['times'][1] = packet.timestamp
-        flow_dict['iats'] = {}
+        flow_dict['iats'] = []
         # store the flow start/end/duration
         flow_dict['flowStart'] = packet.timestamp
         flow_dict['flowEnd'] = packet.timestamp
@@ -461,6 +478,80 @@ class Flow(object):
             flow_dict['b_max_piat'] = 0
             flow_dict['b_avg_piat'] = 0
             flow_dict['b_std_dev_piat'] = 0
+
+    def _is_current_flow(self, packet, flow_dict):
+        """
+        Check if flow is current or has expired.
+        Only check if the flow hash is already known
+        True = flow has not expired
+        False = flow has expired, i.e. PIAT from previous packet
+        in flow is greater than flow expiration threshold
+        """
+        if len(flow_dict['iats']):
+            if ((packet.timestamp - flow_dict['iats'][-1]) > self.flow_expiration):
+                # Flow has expired:
+                return False
+            else:
+                # Flow has not expired:
+                return True
+        elif flow_dict['pktTotalCount'] == 1:
+            # Was only 1 packet so no PIAT so use packet timestamp
+            if ((packet.timestamp - flow_dict['flowStart']) > self.flow_expiration):
+                # Flow has expired:
+                return False
+            else:
+                # Flow has not expired:
+                return True
+        else:
+            # No packets???
+            self.logger.warning("Strange condition...")
+            return True
+
+    def _archive_flow(self, packet):
+        """
+        Move a flow record to archive dictionary, indexed by a
+        longer more unique key
+        """
+        flow_hash = packet.flow_hash
+        flow_dict = self.flow_cache[flow_hash]
+        start_timestamp = flow_dict['flowStart']
+        ip_src = flow_dict['src_ip']
+        ip_dst = flow_dict['dst_ip']
+        proto = flow_dict['proto']
+        tp_src = flow_dict['src_port']
+        tp_dst = flow_dict['dst_port']
+        # Create new more-specific hash key for archiving:
+        if self.mode == 'b':
+            if proto == 6 or proto == 17:
+                # Generate a directional 6-tuple flow_hash:
+                new_hash = nethash.hash_b6((ip_src,
+                                        ip_dst, proto, tp_src,
+                                        tp_dst, start_timestamp))
+            else:
+                # Generate a directional 4-tuple flow_hash:
+                new_hash = nethash.hash_b4((ip_src,
+                                        ip_dst, proto,
+                                        start_timestamp))
+        elif self.mode == 'u':
+            if proto == 6 or proto == 17:
+                # Generate a directional 6-tuple flow_hash:
+                new_hash = nethash.hash_u6((ip_src,
+                                        ip_dst, proto, tp_src,
+                                        tp_dst, start_timestamp))
+            else:
+                # Generate a directional 4-tuple flow_hash:
+                new_hash = nethash.hash_u4((ip_src,
+                                        ip_dst, proto,
+                                        start_timestamp))
+        # Check key isn't already used in archive:
+        if new_hash in self.flow_archive:
+            self.logger.warning("archive duplicate flow key=%s", new_hash)
+            return
+        # Copy to flow archive:
+        self.flow_archive[new_hash] = flow_dict
+        
+        # Delete from current flows:
+        
 
     def packet_dir(self, packet, flow_dict):
         """
