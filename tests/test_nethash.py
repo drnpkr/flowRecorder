@@ -39,11 +39,22 @@ IP_B = '192.168.0.2'
 TP_A = 12345
 TP_B = 443
 TCP = 6
+TIMESTAMP = '1538857982.301350'
 
 # Test packet capture files:
 TEST_PCAP_HTTP1 = '../tests/packet_captures/http1.pcap'
 
 #======================== nethash.py Unit Tests ============================
+def test_hash_b6():
+    """
+    Test bidirectional 6-tuple hashing
+    """
+    # Test that TCP tuples of packets in both directions on
+    # a flow generate the same hash:
+    hash1 = nethash.hash_b6((IP_A, IP_B, TCP, TP_A, TP_B, TIMESTAMP))
+    hash2 = nethash.hash_b6((IP_B, IP_A, TCP, TP_B, TP_A, TIMESTAMP))
+    assert hash1 == hash2
+
 def test_hash_b5():
     """
     Test bidirectional 5-tuple hashing
@@ -72,6 +83,18 @@ def test_hash_b5():
                                           packet.flow_hash, flow_hash_packet_1)
             packet_number += 1
 
+def test_hash_b4():
+    """
+    Test bidirectional 4-tuple hashing
+    """
+    # Test that TCP tuples of packets in both directions on
+    # a flow generate the same hash:
+    hash1 = nethash.hash_b4((IP_A, IP_B, TCP, TIMESTAMP))
+    hash2 = nethash.hash_b4((IP_B, IP_A, TCP, TIMESTAMP))
+    assert hash1 == hash2
+    
+    # TBD: more tests here...
+
 def test_hash_b3():
     """
     Test bidirectional 3-tuple hashing
@@ -87,6 +110,16 @@ def test_hash_b3():
 
     # TBD: needs a non-TCP or UDP packet capture of a flow (i.e. IPsec
     #   or similar...
+
+def test_hash_u6():
+    """
+    Test unidirectional 6-tuple hashing
+    """
+    # Test that TCP tuples of packets in both directions on
+    # a flow generate the same hash:
+    hash1 = nethash.hash_u6((IP_A, IP_B, TCP, TP_A, TP_B, TIMESTAMP))
+    hash2 = nethash.hash_u6((IP_B, IP_A, TCP, TP_B, TP_A, TIMESTAMP))
+    assert hash1 != hash2
 
 def test_hash_u5():
     """
@@ -118,6 +151,18 @@ def test_hash_u5():
                 else:
                     assert packet.flow_hash == flow_hash_packet_backward
             packet_number += 1
+
+def test_hash_u4():
+    """
+    Test unidirectional 4-tuple hashing
+    """
+    # Test that TCP tuples of packets in both directions on
+    # a flow generate the same hash:
+    hash1 = nethash.hash_u4((IP_A, IP_B, TCP, TIMESTAMP))
+    hash2 = nethash.hash_u4((IP_B, IP_A, TCP, TIMESTAMP))
+    assert hash1 != hash2
+    
+    # TBD: more tests here...
 
 def test_hash_u3():
     """

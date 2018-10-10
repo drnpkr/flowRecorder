@@ -62,6 +62,7 @@ def test_packet_dir():
             packet = flows_module.Packet(logger, timestamp, pcap_packet, mode)
             flows_instance.flow.update(packet)
             flow_dict = flows_instance.flow_cache[packet.flow_hash]
+            logger.info("flow ip_src=%s", flow_dict['src_ip'])
             logger.info("pkt=%s ground_truth=%s", packet_number - 1, pkts.DIRECTION[packet_number - 1])
             logger.info("packet_dir=%s", flows_instance.flow.packet_dir(packet, flow_dict))
             if pkts.DIRECTION[packet_number - 1] == 'c2s':
@@ -71,8 +72,6 @@ def test_packet_dir():
             packet_number += 1
 
     # TBD: check mode=u
-
-
 
 #================= HELPER FUNCTIONS ===========================================
 
