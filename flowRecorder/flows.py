@@ -487,32 +487,20 @@ class Flow(object):
         False = flow has expired, i.e. PIAT from previous packet
         in flow is greater than flow expiration threshold
         """
-        # TEMP:
-        self.logger.info("Checking flow expiration, threshold=%s", self.flow_expiration)
         if len(flow_dict['iats']):
             if ((packet.timestamp - flow_dict['times'][-1]) > self.flow_expiration):
                 # Flow has expired:
-                # TEMP:
-                self.logger.info("Flow has expired, piats=%s", packet.timestamp - flow_dict['times'][-1])
-                self.logger.info("packet.timestamp=%s", packet.timestamp)
-                self.logger.info("flow_dict['times'][-1]=%s", flow_dict['times'][-1])
                 return False
             else:
                 # Flow has not expired:
-                # TEMP:
-                self.logger.info("Flow has NOT expired")
                 return True
         elif flow_dict['pktTotalCount'] == 1:
             # Was only 1 packet so no PIAT so use packet timestamp
             if ((packet.timestamp - flow_dict['flowStart']) > self.flow_expiration):
                 # Flow has expired:
-                # TEMP:
-                self.logger.info("Flow has expired (1 pkt), piats=%s", packet.timestamp - flow_dict['flowStart'])
                 return False
             else:
                 # Flow has not expired:
-                # TEMP:
-                self.logger.info("Flow has NOT expired")
                 return True
         else:
             # No packets???

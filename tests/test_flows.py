@@ -73,8 +73,6 @@ def test_packet_dir():
 
     # TBD: check mode=u
 
-
-
 #================= HELPER FUNCTIONS ===========================================
 
 def pkt_test(packet, pkts, pkt_num):
