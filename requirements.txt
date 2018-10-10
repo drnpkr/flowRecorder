@@ -1,5 +1,4 @@
 dpkt
 pcapy
 hashlib
-pandas
 numpy

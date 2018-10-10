@@ -1,8 +1,8 @@
 flowRecorder
 ============
 
-A packet parser tool. It parses the packets and organize them into flow
-records. The tool can work in two modes:
+Use flowRecorder to turn packets into flow records.
+The tool can work in two modes:
 
 1. Live packet capture from a NIC
 2. Parsing packets from a PCAP file.
@@ -26,14 +26,14 @@ command can be used:
 
 ::
 
-       python3 flowRecorder.py -d u -f p.pcap -o results.csv
+       python ~/flowRecorder/flowRecorder/flowRecorder.py -d u -f p.pcap -o results.csv
 
-2. To start caputring the packets from a NIC (en0) and organize them 
+2. To start capturing the packets from a NIC (en0) and organize them 
 into flow records in bidirection, the following command can be used:
 
 ::
 
-       sudo python3 flowRecorder.py -d b -i en0 -o results.csv
+       sudo python ~/flowRecorder/flowRecorder/flowRecorder.py -d b -i en0 -o results.csv
 
 Dependencies
 ============
@@ -43,19 +43,45 @@ flowRecorder depends on the following libraries:
 -  dpkt
 -  pcapy
 -  hashlib
--  pandas
 -  numpy
 
-These can be installed with:
+These can be installed with (Python 2.x):
 
 ::
 
    sudo apt-get update
    sudo apt-get install libpcap-dev
 
-   sudo apt install python3-pip
+   sudo apt install python-pip python-pytest python-yaml
 
-   pip3 install dpkt pcapy pandas numpy click
+   pip install dpkt pcapy numpy
+
+These can be installed with (Python 3.x):
+
+::
+
+   sudo apt-get update
+   sudo apt-get install libpcap-dev
+
+   sudo apt install python3-pip python-pytest3 python-yaml
+
+   pip3 install dpkt pcapy numpy
+
+
+Testing
+=======
+
+Run python 2.x self tests with:
+
+::
+
+    cd ~/flowRecorder/tests/; py.test
+
+Run python 3.x self tests with:
+
+::
+
+    cd ~/flowRecorder/tests/; py.test-3
 
 Known issues
 ============
