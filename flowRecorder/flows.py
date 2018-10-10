@@ -219,16 +219,15 @@ class Flow(object):
         flow_hash = packet.flow_hash
         flow_dict = self.flow_cache[flow_hash]
         # Store size of this packet:
-        flow_dict['length'][flow_dict['pktTotalCount'] + 1] = \
-                                                              packet.length
+        flow_dict['length'].append(packet.length)
         # Update the count of packets and octets:
         flow_dict['pktTotalCount'] += 1
         flow_dict['octetTotalCount'] += packet.length
         # Update the min/max/avg/std_dev of the packet sizes:
-        flow_dict['min_ps'] = min(flow_dict['length'].values())
-        flow_dict['max_ps'] = max(flow_dict['length'].values())
+        flow_dict['min_ps'] = min(flow_dict['length'])
+        flow_dict['max_ps'] = max(flow_dict['length'])
         flow_dict['avg_ps'] = flow_dict['octetTotalCount'] / flow_dict['pktTotalCount']
-        flow_dict['std_dev_ps'] = np.std(list(flow_dict['length'].values()))
+        flow_dict['std_dev_ps'] = np.std(flow_dict['length'])
         # Store the timestamps of the newly captured packet:
         flow_dict['times'].append(packet.timestamp)
         # As we have now at least 2 packets in the flow, we can calculate the packet-inter-arrival-time.
@@ -258,62 +257,58 @@ class Flow(object):
         if direction == 'f':
             # Forward (f) direction
             # Store size of this packet:
-            flow_dict['f_length'][flow_dict['f_pktTotalCount'] + 1] = \
-                                                                  packet.length
+            flow_dict['f_length'].append(packet.length)
             # Update the count of packets and octets:
             flow_dict['f_pktTotalCount'] += 1
             flow_dict['f_octetTotalCount'] += packet.length
             # Update the min/max/avg/std_dev of the packet sizes:
-            flow_dict['f_min_ps'] = min(flow_dict['f_length'].values())
-            flow_dict['f_max_ps'] = max(flow_dict['f_length'].values())
+            flow_dict['f_min_ps'] = min(flow_dict['f_length'])
+            flow_dict['f_max_ps'] = max(flow_dict['f_length'])
             flow_dict['f_avg_ps'] = flow_dict['f_octetTotalCount'] / flow_dict['f_pktTotalCount']
-            flow_dict['f_std_dev_ps'] = np.std(list(flow_dict['f_length'].values()))
+            flow_dict['f_std_dev_ps'] = np.std(flow_dict['f_length'])
             # Store the timestamps of the newly captured packets:
-            flow_dict['f_times'][flow_dict['f_pktTotalCount']] = packet.timestamp
+            flow_dict['f_times'].append(packet.timestamp)
             # Do inter-packet arrival time if have at least 2 packets:
             if (flow_dict['f_pktTotalCount'] > 1):
-                flow_dict['f_iats'][flow_dict['f_pktTotalCount']-1] = \
-                    flow_dict['f_times'][flow_dict['f_pktTotalCount']] \
-                    - flow_dict['f_times'][flow_dict['f_pktTotalCount']-1]
+                flow_dict['f_iats'].append(flow_dict['f_times'][-1] \
+                        - flow_dict['f_times'][-2])
             # Update the flow end/duration (the start does not change)
             flow_dict['f_flowEnd'] = packet.timestamp
             flow_dict['f_flowDuration'] = (packet.timestamp - flow_dict['f_flowStart'])
             # at last update the min/max/avg/std_dev of packet-inter-arrival-times
-            flow_dict['f_min_piat'] = min(flow_dict['f_iats'].values())
-            flow_dict['f_max_piat'] = max(flow_dict['f_iats'].values())
-            flow_dict['f_avg_piat'] = sum(flow_dict['f_iats'].values()) / (flow_dict['f_pktTotalCount'] - 1)
-            flow_dict['f_std_dev_piat'] = np.std(list(flow_dict['f_iats'].values()))
+            flow_dict['f_min_piat'] = min(flow_dict['f_iats'])
+            flow_dict['f_max_piat'] = max(flow_dict['f_iats'])
+            flow_dict['f_avg_piat'] = sum(flow_dict['f_iats']) / (flow_dict['f_pktTotalCount'] - 1)
+            flow_dict['f_std_dev_piat'] = np.std(flow_dict['f_iats'])
         else:
             # Backward (b) direction
             # Note: this may be the first time we've see backwards dir packet.
             # Store size of this packet:
-            flow_dict['b_length'][flow_dict['b_pktTotalCount'] + 1] = \
-                                                                  packet.length
+            flow_dict['b_length'].append(packet.length)
             # Update the count of packets and octets:
             flow_dict['b_pktTotalCount'] += 1
             flow_dict['b_octetTotalCount'] += packet.length
             # Update the min/max/avg/std_dev of the packet sizes:
-            flow_dict['b_min_ps'] = min(flow_dict['b_length'].values())
-            flow_dict['b_max_ps'] = max(flow_dict['b_length'].values())
+            flow_dict['b_min_ps'] = min(flow_dict['b_length'])
+            flow_dict['b_max_ps'] = max(flow_dict['b_length'])
             flow_dict['b_avg_ps'] = flow_dict['b_octetTotalCount'] / flow_dict['b_pktTotalCount']
-            flow_dict['b_std_dev_ps'] = np.std(list(flow_dict['b_length'].values()))
+            flow_dict['b_std_dev_ps'] = np.std(flow_dict['b_length'])
             # Store the timestamps of the newly captured packets:
-            flow_dict['b_times'][flow_dict['b_pktTotalCount']] = packet.timestamp
+            flow_dict['b_times'].append(packet.timestamp)
             # Do inter-packet arrival time if have at least 2 packets:
             if (flow_dict['b_pktTotalCount'] < 2):
                 # First time, so set some stuff:
                 flow_dict['b_flowStart'] = packet.timestamp
             else:
                 # Not first time:
-                flow_dict['b_iats'][flow_dict['b_pktTotalCount']-1] = \
-                    flow_dict['b_times'][flow_dict['b_pktTotalCount']] \
-                    - flow_dict['b_times'][flow_dict['b_pktTotalCount']-1]
+                flow_dict['b_iats'].append(flow_dict['b_times'][-1] \
+                    - flow_dict['b_times'][-2])
                 flow_dict['b_flowDuration'] = (packet.timestamp - flow_dict['b_flowStart'])
                 # Update the min/max/avg/std_dev of packet-inter-arrival-times:
-                flow_dict['b_min_piat'] = min(flow_dict['b_iats'].values())
-                flow_dict['b_max_piat'] = max(flow_dict['b_iats'].values())
-                flow_dict['b_avg_piat'] = sum(flow_dict['b_iats'].values()) / (flow_dict['b_pktTotalCount'] - 1)
-                flow_dict['b_std_dev_piat'] = np.std(list(flow_dict['b_iats'].values()))
+                flow_dict['b_min_piat'] = min(flow_dict['b_iats'])
+                flow_dict['b_max_piat'] = max(flow_dict['b_iats'])
+                flow_dict['b_avg_piat'] = sum(flow_dict['b_iats']) / (flow_dict['b_pktTotalCount'] - 1)
+                flow_dict['b_std_dev_piat'] = np.std(flow_dict['b_iats'])
             # Update the flow end/duration (the start does not change):
             flow_dict['b_flowEnd'] = packet.timestamp
 
@@ -334,8 +329,8 @@ class Flow(object):
         flow_dict['src_port'] = packet.tp_src
         flow_dict['dst_port'] = packet.tp_dst
         # Store the size of the first packet:
-        flow_dict['length'] = {}
-        flow_dict['length'][1] = packet.length
+        flow_dict['length'] = []
+        flow_dict['length'].append(packet.length)
         # Store the packet size and number of octets:
         flow_dict['pktTotalCount'] = 1
         flow_dict['octetTotalCount'] = packet.length
@@ -344,7 +339,7 @@ class Flow(object):
         flow_dict['min_ps'] = packet.length
         flow_dict['max_ps'] = packet.length
         flow_dict['avg_ps'] = packet.length
-        flow_dict['std_dev_ps'] = np.std(list(flow_dict['length'].values()))
+        flow_dict['std_dev_ps'] = np.std(flow_dict['length'])
         # Store the timestamps of the packets:
         flow_dict['times'] = []
         flow_dict['times'].append(packet.timestamp)
@@ -367,12 +362,12 @@ class Flow(object):
         flow_hash = packet.flow_hash
         flow_dict = self.flow_cache[flow_hash]
         # Set up keys in preparation:
-        flow_dict['f_length'] = {}
-        flow_dict['f_times'] = {}
-        flow_dict['f_iats'] = {}
-        flow_dict['b_length'] = {}
-        flow_dict['b_times'] = {}
-        flow_dict['b_iats'] = {}
+        flow_dict['f_length'] = []
+        flow_dict['f_times'] = []
+        flow_dict['f_iats'] = []
+        flow_dict['b_length'] = []
+        flow_dict['b_times'] = []
+        flow_dict['b_iats'] = []
         flow_dict['b_pktTotalCount'] = 0
         flow_dict['b_octetTotalCount'] = 0
         flow_dict['b_min_ps'] = 0
@@ -392,7 +387,7 @@ class Flow(object):
         if direction == 'f':
             # Forward (f) direction
             # Store the size of the first packet:
-            flow_dict['f_length'][1] = packet.length
+            flow_dict['f_length'].append(packet.length)
             # Store the packet size and number of octets:
             flow_dict['f_pktTotalCount'] = 1
             flow_dict['f_octetTotalCount'] = packet.length
@@ -401,9 +396,9 @@ class Flow(object):
             flow_dict['f_min_ps'] = packet.length
             flow_dict['f_max_ps'] = packet.length
             flow_dict['f_avg_ps'] = packet.length
-            flow_dict['f_std_dev_ps'] = np.std(list(flow_dict['f_length'].values()))
+            flow_dict['f_std_dev_ps'] = np.std(flow_dict['f_length'])
             # Store the timestamps of the packets:
-            flow_dict['f_times'][1] = packet.timestamp
+            flow_dict['f_times'].append(packet.timestamp)
             # store the flow start/end/duration
             flow_dict['f_flowStart'] = packet.timestamp
             flow_dict['f_flowEnd'] = packet.timestamp
@@ -417,7 +412,7 @@ class Flow(object):
         else:
             # Backward (b) direction
             # Store the size of the first packet:
-            flow_dict['b_length'][1] = packet.length
+            flow_dict['b_length'].append(packet.length)
             # Store the packet size and number of octets:
             flow_dict['b_pktTotalCount'] = 1
             flow_dict['b_octetTotalCount'] = packet.length
@@ -426,9 +421,9 @@ class Flow(object):
             flow_dict['b_min_ps'] = packet.length
             flow_dict['b_max_ps'] = packet.length
             flow_dict['b_avg_ps'] = packet.length
-            flow_dict['b_std_dev_ps'] = np.std(list(flow_dict['b_length'].values()))
+            flow_dict['b_std_dev_ps'] = np.std(flow_dict['b_length'])
             # Store the timestamps of the packets:
-            flow_dict['b_times'][1] = packet.timestamp
+            flow_dict['b_times'].append(packet.timestamp)
             # store the flow start/end/duration
             flow_dict['b_flowStart'] = packet.timestamp
             flow_dict['b_flowEnd'] = packet.timestamp
