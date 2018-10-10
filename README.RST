@@ -92,4 +92,4 @@ processing time mainly depends on the selected directionality and the
 computing resources.
 
 **The tool is under testing. Please report any issues/bugs to the
-developer.**
+developers.**
