@@ -152,7 +152,6 @@ class FlowRecorder(BaseClass):
         self.flows.write(self.output_filename)
         time4 = time.time()
         self.logger.info("Wrote results in %s seconds", time4 - time3)
-        self.flows.perf()
         self.flows.stats()
         time5 = time.time()
         self.logger.info("Finished, total time %s seconds", time5 - time0)

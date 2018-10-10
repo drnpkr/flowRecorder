@@ -20,11 +20,9 @@ It stores cummulative information (not individual packets)
 about flows in a MongoDB collection
 """
 # For Python 2.x compatibility:
-from __future__ import print_function
 from __future__ import division
 
 # General imports:
-import time
 import sys
 
 # For CSV operations:
@@ -38,10 +36,6 @@ from collections import OrderedDict
 
 # For math operations:
 import numpy as np
-
-# Import runstats for code performance statistics:
-# Install with: pip install runstats --user
-from runstats import Statistics
 
 # Import dpkt for packet parsing:
 import dpkt
@@ -80,6 +74,9 @@ class Flows(BaseClass):
         # Create a Flow object for flow operations:
         self.flow = Flow(config, self.logger, self.flow_cache, self.flow_archive, mode)
 
+        # Counter for packets that we ignored for various reasons:
+        self.packets_ignored = 0
+
     def ingest_pcap(self, dpkt_reader):
         """
         ingest packet data from dpkt reader of pcap file
@@ -91,12 +88,15 @@ class Flows(BaseClass):
         for timestamp, packet in dpkt_reader:
             # Instantiate an instance of Packet class with packet info:
             packet = Packet(self.logger, timestamp, packet, self.mode)
-            # Update the flow with packet info:
-            self.flow.update(packet)
+            if packet.ingested:
+                # Update the flow with packet info:
+                self.flow.update(packet)
+            else:
+                self.packets_ignored += 1
 
     def ingest_packet(self, hdr, packet):
         """
-        ingest a packet from pcapy into flows.
+        ingest a packet from pcapy (live capture) into flows.
         """
         # Get timestamp from header:
         sec, ms = hdr.getts()
@@ -104,8 +104,12 @@ class Flows(BaseClass):
 
         # Instantiate an instance of Packet class with packet info:
         packet = Packet(self.logger, timestamp, packet, self.mode)
-        # Update the flow with packet info:
-        self.flow.update(packet)
+
+        if packet.ingested:
+            # Update the flow with packet info:
+            self.flow.update(packet)
+        else:
+            self.packets_ignored += 1
 
     def write(self, file_name):
         """
@@ -147,42 +151,15 @@ class Flows(BaseClass):
             for flow_dict in self.flow_cache.items():
                 writer.writerow(flow_dict[1])
 
-    def perf(self):
-        """
-        Prints out stats for performance of this module
-        """
-        print("flowRecorder flows performance statistics")
-        print("-----------------------------------------")
-        print("Flow lookup:")
-        stats = self.flow.stats_lookup_found
-        _min = "{0:.4f}".format(stats.minimum())
-        _mean = "{0:.4f}".format(stats.mean())
-        _max = "{0:.4f}".format(stats.maximum())
-        print("     Found:", _min, "(Min), ", _mean, "(Mean), ", _max, "(Max)")
-        stats = self.flow.stats_lookup_notfound
-        _min = "{0:.4f}".format(stats.minimum())
-        _mean = "{0:.4f}".format(stats.mean())
-        _max = "{0:.4f}".format(stats.maximum())
-        print("  NotFound:", _min, "(Min), ", _mean, "(Mean), ", _max, "(Max)")
-        print("Flow write:")
-        stats = self.flow.stats_update_existing
-        _min = "{0:.4f}".format(stats.minimum())
-        _mean = "{0:.4f}".format(stats.mean())
-        _max = "{0:.4f}".format(stats.maximum())
-        print("  Existing:", _min, "(Min), ", _mean, "(Mean), ", _max, "(Max)")
-        stats = self.flow.stats_write_new
-        _min = "{0:.4f}".format(stats.minimum())
-        _mean = "{0:.4f}".format(stats.mean())
-        _max = "{0:.4f}".format(stats.maximum())
-        print("       New:", _min, "(Min), ", _mean, "(Mean), ", _max, "(Max)")
-
     def stats(self):
         """
-        Stats for the flow_cache
+        Log the stats for flows
         """
-        print("Result statistics")
-        print("-----------------")
-        print("  Records:", len(self.flow_cache))
+        self.logger.info("Result statistics")
+        self.logger.info("-----------------")
+        self.logger.info("Flow Records: %s", len(self.flow_cache))
+        self.logger.info("Additional Archived Flow Records: %s", len(self.flow_archive))
+        self.logger.info("Ignored Packets: %s", self.packets_ignored)
 
 class Flow(object):
     """
@@ -203,11 +180,6 @@ class Flow(object):
         self.flow_cache = flow_cache
         self.flow_archive = flow_archive
         self.mode = mode
-        # Instantiate classes for recording perf timing stats:
-        self.stats_lookup_found = Statistics()
-        self.stats_lookup_notfound = Statistics()
-        self.stats_update_existing = Statistics()
-        self.stats_write_new = Statistics()
         # Get value from config:
         self.flow_expiration = config.get_value("flow_expiration")
         self.logger.debug("Flow object instantiated in mode=%s", mode)
@@ -216,11 +188,8 @@ class Flow(object):
         """
         Add or update flow in in flow_cache dictionary
         """
-        time0 = time.time()
         if packet.flow_hash in self.flow_cache:
             # Found existing flow in dict, update it:
-            time1 = time.time()
-            self.stats_lookup_found.push(time1 - time0)
             if self._is_current_flow(packet, self.flow_cache[packet.flow_hash]):
                 # Update standard flow parameters:
                 self._update_found(packet)
@@ -236,20 +205,12 @@ class Flow(object):
                 self._create_new(packet)
                 if self.mode == 'b':
                     self._create_new_bidir(packet)
-            # Update time stats:
-            time2 = time.time()
-            self.stats_update_existing.push(time2 - time1)
         else:
             # Flow doesn't exist yet, create it:
-            time1 = time.time()
-            self.stats_lookup_notfound.push(time1 - time0)
             self._create_new(packet)
             if self.mode == 'b':
                 self._create_new_bidir(packet)
-            # Update time stats:
-            time2 = time.time()
-            self.stats_write_new.push(time2 - time1)
-        
+
     def _update_found(self, packet):
         """
         Update existing flow in flow_cache dictionary with standard
@@ -487,8 +448,8 @@ class Flow(object):
         False = flow has expired, i.e. PIAT from previous packet
         in flow is greater than flow expiration threshold
         """
-        if len(flow_dict['iats']):
-            if ((packet.timestamp - flow_dict['times'][-1]) > self.flow_expiration):
+        if flow_dict['iats']:
+            if (packet.timestamp - flow_dict['times'][-1]) > self.flow_expiration:
                 # Flow has expired:
                 return False
             else:
@@ -496,7 +457,7 @@ class Flow(object):
                 return True
         elif flow_dict['pktTotalCount'] == 1:
             # Was only 1 packet so no PIAT so use packet timestamp
-            if ((packet.timestamp - flow_dict['flowStart']) > self.flow_expiration):
+            if (packet.timestamp - flow_dict['flowStart']) > self.flow_expiration:
                 # Flow has expired:
                 return False
             else:
@@ -562,7 +523,7 @@ class Flow(object):
         elif packet.ip_src == flow_dict['dst_ip']:
             return 'b'
         else:
-            logger.critical("Uh oh, something went wrong. Exiting")
+            self.logger.critical("Uh oh, something went wrong. Exiting")
             sys.exit()
 
 class Packet(object):
@@ -590,6 +551,7 @@ class Packet(object):
         self.tp_flags = 0
         self.tp_seq_src = 0
         self.tp_seq_dst = 0
+        self.ingested = False
 
         try:
             # Read packet into dpkt to parse headers:
@@ -601,7 +563,6 @@ class Packet(object):
 
         # Ignore if non-IP packet:
         if not (isinstance(eth.data, dpkt.ip.IP) or isinstance(eth.data, dpkt.ip6.IP6)):
-            self.logger.debug("Non IP Packet type not supported %s", eth.data.__class__.__name__)
             return
 
         ip = eth.data
@@ -657,6 +618,8 @@ class Packet(object):
         else:
             logger.critical("unsupported mode=%s", mode)
             sys.exit()
+        # Yay, packet has been ingested:
+        self.ingested = True
 
     def tcp_fin(self):
         """
