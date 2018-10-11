@@ -87,6 +87,9 @@ class Flows(BaseClass):
         Args:
            dpkt_reader: dpkt pcap reader object (dpkt.pcap.Reader)
         """
+
+        infoFrequency = self.config.get_value("infoFrequency")
+
         # Process each packet in the pcap:
         for timestamp, packet in dpkt_reader:
             # Instantiate an instance of Packet class with packet info:
@@ -95,6 +98,8 @@ class Flows(BaseClass):
                 # Update the flow with packet info:
                 self.flow.update(packet)
                 self.packets_processed += 1
+                if self.packets_processed % infoFrequency == 0:
+                    self.logger.info("Already processed %d packets", self.packets_processed)
             else:
                 self.packets_ignored += 1
 
@@ -109,10 +114,14 @@ class Flows(BaseClass):
         # Instantiate an instance of Packet class with packet info:
         packet = Packet(self.logger, timestamp, packet, self.mode)
 
+        infoFrequency = self.config.get_value("infoFrequency")
+
         if packet.ingested:
             # Update the flow with packet info:
             self.flow.update(packet)
             self.packets_processed += 1
+            if self.packets_processed % infoFrequency == 0:
+                self.logger.info("Already processed %d packets", self.packets_processed)
         else:
             self.packets_ignored += 1
 

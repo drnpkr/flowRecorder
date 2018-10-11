@@ -53,3 +53,8 @@ read_timeout: 100
 # Threshold time in seconds between packets with same flow keys
 # whereby will be considered a new separate flow:
 flow_expiration: 3600
+#
+# Frequency of information status messages
+# The value defines after how many processed packets an info status message is going to be shown
+infoFrequency: 10000
+#
