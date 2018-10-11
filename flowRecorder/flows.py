@@ -126,7 +126,9 @@ class Flows(BaseClass):
             else:
                 # Bidirectional fields:
                 fieldnames = ['src_ip', 'src_port', 'dst_ip', 'dst_port',
-                            'proto', 'pktTotalCount', 'octetTotalCount',
+                            'proto',
+                            'length',
+                            'pktTotalCount', 'octetTotalCount',
                             'min_ps', 'max_ps', 'avg_ps', 'std_dev_ps',
                             'flowStart', 'flowEnd', 'flowDuration',
                             'min_piat', 'max_piat', 'avg_piat', 'std_dev_piat',
@@ -182,6 +184,7 @@ class Flow(object):
         self.mode = mode
         # Get value from config:
         self.flow_expiration = config.get_value("flow_expiration")
+        self.logger.info("Flows will expire after %s seconds of inactivity", self.flow_expiration)
         self.logger.debug("Flow object instantiated in mode=%s", mode)
 
     def update(self, packet):
@@ -537,7 +540,7 @@ class Packet(object):
         #*** Initialise packet variables:
         self.flow_hash = 0
         self.timestamp = timestamp
-        self.length = len(packet)
+        # self.length = len(packet)
         self.ip_src = 0
         self.ip_dst = 0
         self.proto = 0
@@ -556,11 +559,19 @@ class Packet(object):
             self.logger.error("failed to unpack packet, skipping...")
             return
 
+        # Get the IP packet
+        ip = eth.data
+
+        # Get the length of IPv4 packet:
+        if isinstance(eth.data, dpkt.ip.IP):
+            self.length = ip.len
+        # Get the length of IPv6 packet:
+        elif isinstance(eth.data, dpkt.ip6.IP6):
+            self.length = len(ip.data)
         # Ignore if non-IP packet:
-        if not (isinstance(eth.data, dpkt.ip.IP) or isinstance(eth.data, dpkt.ip6.IP6)):
+        else:
             return
 
-        ip = eth.data
         # Handle IPv4 and IPv6:
         try:
             self.ip_src = socket.inet_ntop(socket.AF_INET, ip.src)
