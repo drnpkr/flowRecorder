@@ -52,4 +52,4 @@ read_timeout: 100
 #========== FLOW EXPIRATION ==========================
 # Threshold time in seconds between packets with same flow keys
 # whereby will be considered a new separate flow:
-flow_expiration: 3600
+flow_expiration: 15
