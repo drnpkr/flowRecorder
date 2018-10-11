@@ -35,6 +35,20 @@ into flow records in bidirection, the following command can be used:
 
        sudo python ~/flowRecorder/flowRecorder/flowRecorder.py -d b -i en0 -o results.csv
 
+Notes
+=====
+* Only creates flows for IP packets
+* Uses 5-tuple of ip_src, ip_dst, proto, src_port, dst_port flow keys as
+  common properties to identify TCP/UDP flows
+* Uses 3-tuple of ip_src, ip_dst, proto flow keys as
+  common properties to identify non-TCP/UDP flows
+* Packet lengths are calculated on sizes of IP packets (i.e. ignores
+  Ethernet framing size)
+* Flows are considered to have expired if more than a threshold of time
+  has passed since previous packet and when this occurs further packets
+  will be considered as a new flow and the previous packets moved to the
+  flow archive. Threshold for flow expiration is in the config file.
+
 Dependencies
 ============
 
