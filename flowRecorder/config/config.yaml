@@ -41,6 +41,10 @@ flowRecorder_logging_level_c: DEBUG
 config_logging_level_c: DEBUG
 flows_logging_level_c: DEBUG
 #
+# Frequency of information status messages
+# The value defines after how many processed packets an info status message is going to be shown
+status_info_frequency: 10000
+#
 #========== PACKET CAPTURE ==========================
 # Max size of packet to capture:
 maxlen: 65535
@@ -54,7 +58,10 @@ read_timeout: 100
 # whereby will be considered a new separate flow:
 flow_expiration: 3600
 #
-# Frequency of information status messages
-# The value defines after how many processed packets an info status message is going to be shown
-infoFrequency: 10000
+#========== INCREMENTAL SAVES =======================
+# Set to 1 if want to save the flow records incrementally
+incremental_save_enabled: 0
+# Frequency of saves
+# The value defines after how many processed packets the flow cache contents are going to be saved
+incremental_save_frequency: 50000
 #

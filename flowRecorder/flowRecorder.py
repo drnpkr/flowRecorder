@@ -160,17 +160,29 @@ class FlowRecorder(BaseClass):
         """
         Read in packet capture file
         """
+        # Check if incremental save is enabled
+        incremental_save_enabled = self.config.get_value("incremental_save_enabled")
+        #
         self.logger.info("Opening PCAP file=%s", self.input_filename)
         # Open the PCAP file:
         with open(self.input_filename, 'rb') as pcap_file:
             pcap_file_handle = dpkt.pcap.Reader(pcap_file)
             time1 = time.time()
             self.logger.info("Opened PCAP in %s seconds", time1 - time0)
-            try:
-                # Process PCAP packets into flows:
-                self.flows.ingest_pcap(pcap_file_handle)
-            except (KeyboardInterrupt, SystemExit):
-                self.logger.info("SIGINT (Ctrl-c) detected.")
+            # If incremental save is disabled
+            if incremental_save_enabled == False:
+                try:
+                    # Process PCAP packets into flows:
+                    self.flows.ingest_pcap(pcap_file_handle)
+                except (KeyboardInterrupt, SystemExit):
+                    self.logger.info("SIGINT (Ctrl-c) detected.")
+            # If incremental save is enabled
+            else:
+                try:
+                    # Process PCAP packets into flows:
+                    self.flows.ingest_pcap_inc_save(pcap_file_handle, self.output_filename)
+                except (KeyboardInterrupt, SystemExit):
+                    self.logger.info("SIGINT (Ctrl-c) detected.")
             time2 = time.time()
             self.logger.info("Processed in %s seconds", time2 - time1)
 

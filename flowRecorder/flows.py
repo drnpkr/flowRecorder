@@ -88,7 +88,7 @@ class Flows(BaseClass):
            dpkt_reader: dpkt pcap reader object (dpkt.pcap.Reader)
         """
 
-        infoFrequency = self.config.get_value("infoFrequency")
+        status_info_frequency = self.config.get_value("status_info_frequency")
 
         # Process each packet in the pcap:
         for timestamp, packet in dpkt_reader:
@@ -98,8 +98,37 @@ class Flows(BaseClass):
                 # Update the flow with packet info:
                 self.flow.update(packet)
                 self.packets_processed += 1
-                if self.packets_processed % infoFrequency == 0:
+                if self.packets_processed % status_info_frequency == 0:
                     self.logger.info("Already processed %d packets", self.packets_processed)
+            else:
+                self.packets_ignored += 1
+
+    def ingest_pcap_inc_save(self, dpkt_reader, output_filename):
+        """
+        ingest packet data from dpkt reader of pcap file
+        into flows. Store the contents of the flow records incrementally.
+        Args:
+           dpkt_reader: dpkt pcap reader object (dpkt.pcap.Reader)
+           output_filename: name of the file to store the flows
+        """
+
+        status_info_frequency = self.config.get_value("status_info_frequency")
+        incremental_save_frequency = self.config.get_value("incremental_save_frequency")
+
+        # Process each packet in the pcap:
+        for timestamp, packet in dpkt_reader:
+            # Instantiate an instance of Packet class with packet info:
+            packet = Packet(self.logger, timestamp, packet, self.mode)
+            if packet.ingested:
+                # Update the flow with packet info:
+                self.flow.update(packet)
+                self.packets_processed += 1
+                if self.packets_processed % status_info_frequency == 0:
+                    self.logger.info("Already processed %d packets", self.packets_processed)
+                if self.packets_processed % incremental_save_frequency == 0:
+                    # self.logger.info("%s packets have been processed", self.packets_processed)
+                    self.logger.info("Saving data into %s", output_filename + '-' + str(self.packets_processed) +'.csv')
+                    self.write(output_filename + '-' + str(self.packets_processed))
             else:
                 self.packets_ignored += 1
 
@@ -114,13 +143,13 @@ class Flows(BaseClass):
         # Instantiate an instance of Packet class with packet info:
         packet = Packet(self.logger, timestamp, packet, self.mode)
 
-        infoFrequency = self.config.get_value("infoFrequency")
+        status_info_frequency = self.config.get_value("status_info_frequency")
 
         if packet.ingested:
             # Update the flow with packet info:
             self.flow.update(packet)
             self.packets_processed += 1
-            if self.packets_processed % infoFrequency == 0:
+            if self.packets_processed % status_info_frequency == 0:
                 self.logger.info("Already processed %d packets", self.packets_processed)
         else:
             self.packets_ignored += 1
@@ -129,7 +158,7 @@ class Flows(BaseClass):
         """
         Write all flow records out to CSV file
         """
-        with open(file_name, mode='w') as csv_file:
+        with open(file_name+'.csv', mode='w') as csv_file:
             if self.mode == 'u':
                 # Unidirectional fields:
                 fieldnames = ['src_ip', 'src_port', 'dst_ip', 'dst_port',
