@@ -2,3 +2,4 @@ dpkt
 pcapy
 hashlib
 numpy
+pandas
