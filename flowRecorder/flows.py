@@ -92,16 +92,31 @@ class Flows(BaseClass):
 
         # Process each packet in the pcap:
         for timestamp, packet in dpkt_reader:
-            # Instantiate an instance of Packet class with packet info:
-            packet = Packet(self.logger, timestamp, packet, self.mode)
-            if packet.ingested:
-                # Update the flow with packet info:
-                self.flow.update(packet)
-                self.packets_processed += 1
-                if self.packets_processed % infoFrequency == 0:
-                    self.logger.info("Already processed %d packets", self.packets_processed)
-            else:
-                self.packets_ignored += 1
+
+            try:
+                ip = self.iplayer_from_packet(packet, dpkt_reader.datalink())
+
+                # Instantiate an instance of Packet class with packet info:
+                packet = Packet(self.logger, timestamp, ip, self.mode)
+                if packet.ingested:
+                    # Update the flow with packet info:
+                    self.flow.update(packet)
+                    self.packets_processed += 1
+                    if self.packets_processed % infoFrequency == 0:
+                        self.logger.info("Already processed %d packets", self.packets_processed)
+                else:
+                    self.packets_ignored += 1
+
+            except Exception as e:
+                self.logger.exception("Failed to process packet: %s", e)
+                # self.logger.info(ip.__hdr__)
+                # self.logger.debug(type(ip))
+                # self.logger.debug(socket.inet_ntop(socket.AF_INET, ip.src))
+                # self.logger.debug(socket.inet_ntop(socket.AF_INET, ip.dst))
+                # self.logger.debug(ip.p)
+                # self.logger.debug(ip.len)
+                # self.logger.debug(self.packets_processed)
+                # self.logger.debug(ip.offset)
 
     def ingest_packet(self, hdr, packet):
         """
@@ -124,6 +139,25 @@ class Flows(BaseClass):
                 self.logger.info("Already processed %d packets", self.packets_processed)
         else:
             self.packets_ignored += 1
+
+    def iplayer_from_packet(self, packet, linktype=1):
+        """Converts a raw packet to a dpkt packet regarding of link type.
+        @param packet: packet packet
+        @param linktype: integer describing link type as expected by dpkt
+        """
+        if linktype == 1:  # ethernet
+            pkt = dpkt.ethernet.Ethernet(packet)
+            ip = pkt.data
+        elif linktype == 101:  # raw
+            try:
+                ip = dpkt.ip.IP(packet)
+            except:
+                ip = dpkt.ip6.IP6(packet)
+        else:
+            print("Unsupported PCAP linktype. Aborting...")
+            sys.exit()
+        return ip
+
 
     def write(self, file_name):
         """
@@ -523,7 +557,6 @@ class Flow(object):
         self.flow_archive[new_hash] = flow_dict
         
         # Delete from current flows:
-        
 
     def packet_dir(self, packet, flow_dict):
         """
@@ -541,19 +574,17 @@ class Packet(object):
     """
     An object that represents a packet
     """
-    def __init__(self, logger, timestamp, packet, mode):
+    def __init__(self, logger, timestamp, ip, mode):
         """
         Parameters:
             timestamp: when packet was recorded
-            packet: dpkt object
-            mode: b (bidirectional) or u (unidirectional). Used for
-            hash calculation
+            ip: ip packet
+            mode: b (bidirectional) or u (unidirectional). Used for hash calculation
         """
         self.logger = logger
-        #*** Initialise packet variables:
+        # Initialise packet variables:
         self.flow_hash = 0
         self.timestamp = timestamp
-        # self.length = len(packet)
         self.ip_src = 0
         self.ip_dst = 0
         self.proto = 0
@@ -564,22 +595,14 @@ class Packet(object):
         self.tp_seq_dst = 0
         self.ingested = False
 
-        try:
-            # Read packet into dpkt to parse headers:
-            eth = dpkt.ethernet.Ethernet(packet)
-        except:
-            # Skip Packet if unable to parse:
-            self.logger.error("failed to unpack packet, skipping...")
-            return
-
-        # Get the IP packet
-        ip = eth.data
-
         # Get the length of IPv4 packet:
-        if isinstance(eth.data, dpkt.ip.IP):
+        if isinstance(ip, dpkt.ip.IP):
+            # Ignore if UDP is Fragmented:
+            if ip.offset > 0:
+                return
             self.length = ip.len
         # Get the length of IPv6 packet:
-        elif isinstance(eth.data, dpkt.ip6.IP6):
+        elif isinstance(ip, dpkt.ip6.IP6):
             self.length = len(ip.data)
         # Ignore if non-IP packet:
         else:
@@ -594,7 +617,7 @@ class Packet(object):
             self.ip_dst = socket.inet_ntop(socket.AF_INET6, ip.dst)
         # Transport layer:
         self.proto = ip.p
-        if ip.p == 6:
+        if ip.p == dpkt.ip.IP_PROTO_TCP: # 6
             # TCP
             tcp = ip.data
             self.tp_src = tcp.sport
@@ -602,7 +625,7 @@ class Packet(object):
             self.tp_flags = tcp.flags
             self.tp_seq_src = tcp.seq
             self.tp_seq_dst = tcp.ack
-        elif ip.p == 17:
+        elif ip.p == dpkt.ip.IP_PROTO_UDP: # 17
             # UDP
             udp = ip.data
             self.tp_src = udp.sport
@@ -615,7 +638,7 @@ class Packet(object):
             pass
 
         if mode == 'b':
-            if self.proto == 6 or self.proto == 17:
+            if self.proto == dpkt.ip.IP_PROTO_TCP or self.proto == dpkt.ip.IP_PROTO_UDP:
                 # Generate a directional 5-tuple flow_hash:
                 self.flow_hash = nethash.hash_b5((self.ip_src,
                                         self.ip_dst, self.proto, self.tp_src,
@@ -625,7 +648,7 @@ class Packet(object):
                 self.flow_hash = nethash.hash_b3((self.ip_src,
                                         self.ip_dst, self.proto))
         elif mode == 'u':
-            if self.proto == 6 or self.proto == 17:
+            if self.proto == dpkt.ip.IP_PROTO_TCP or self.proto == dpkt.ip.IP_PROTO_UDP:
                 # Generate a directional 5-tuple flow_hash:
                 self.flow_hash = nethash.hash_u5((self.ip_src,
                                         self.ip_dst, self.proto, self.tp_src,
