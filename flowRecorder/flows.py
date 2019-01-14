@@ -142,13 +142,14 @@ class Flows(BaseClass):
 
     def iplayer_from_packet(self, packet, linktype=1):
         """Converts a raw packet to a dpkt packet regarding of link type.
-        @param packet: packet packet
+        @param packet: packet
         @param linktype: integer describing link type as expected by dpkt
         """
         if linktype == 1:  # ethernet
             pkt = dpkt.ethernet.Ethernet(packet)
             ip = pkt.data
         elif linktype == 101:  # raw
+            # could not find a better way to check whether it is IPv4 or IPv6
             try:
                 ip = dpkt.ip.IP(packet)
             except:
